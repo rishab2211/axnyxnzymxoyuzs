@@ -1,0 +1,63 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: windscope-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-windscope}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-windscope}
+      POSTGRES_DB: ${POSTGRES_DB:-windscope_db}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-windscope} -d ${POSTGRES_DB:-windscope_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - windscope-net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: windscope-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-windscope}:${POSTGRES_PASSWORD:-windscope}@postgres:5432/${POSTGRES_DB:-windscope_db}
+      DEFAULT_DECISION_CUTOFF: ${DEFAULT_DECISION_CUTOFF:-11:00}
+      AUTO_INGEST_ON_STARTUP: ${AUTO_INGEST_ON_STARTUP:-true}
+      ENVIRONMENT: production
+      CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173","http://127.0.0.1:3000","http://127.0.0.1:5173"]'
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - windscope-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: windscope-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_started
+    networks:
+      - windscope-net
+
+volumes:
+  postgres_data:
+    name: windscope_postgres_data
+
+networks:
+  windscope-net:
+    name: windscope_network
+    driver: bridge

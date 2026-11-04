@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+backend/.venv/
+.venv/
+venv/
+ENV/
+env/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node / Frontend
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.eslintcache
+
+# Environment / Local Secrets
+.env
+.env.local
+.env.*.local
+*.env
+
+# Operating System & IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker / DB data
+*.db
+*.sqlite3
+data/
