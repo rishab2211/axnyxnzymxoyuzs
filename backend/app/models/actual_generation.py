@@ -2,7 +2,6 @@ from sqlalchemy import (
     Column,
     BigInteger,
     Integer,
-    DateTime,
     Date,
     SmallInteger,
     String,
@@ -12,21 +11,21 @@ from sqlalchemy import (
     JSON,
 )
 from sqlalchemy.sql import func
-from app.database import Base
+from app.database import Base, UTCDateTime
 
 
 class ActualGeneration(Base):
     __tablename__ = "actual_generation"
 
     id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
-    start_time = Column(DateTime(timezone=True), nullable=False, index=True)
-    publish_time = Column(DateTime(timezone=True), nullable=False, index=True)
+    start_time = Column(UTCDateTime, nullable=False, index=True)
+    publish_time = Column(UTCDateTime, nullable=False, index=True)
     settlement_date = Column(Date, nullable=False, index=True)
     settlement_period = Column(SmallInteger, nullable=False)
     fuel_type = Column(String(20), nullable=False, default="WIND")
     generation_mw = Column(Numeric(10, 2), nullable=False)
     source_dataset = Column(String(20), nullable=False, default="FUELHH")
-    ingested_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    ingested_at = Column(UTCDateTime, nullable=False, server_default=func.now())
     raw_payload = Column(JSON, nullable=True)
 
     __table_args__ = (

@@ -2,13 +2,12 @@ from sqlalchemy import (
     Column,
     BigInteger,
     Integer,
-    DateTime,
     String,
     Text,
     JSON,
 )
 from sqlalchemy.sql import func
-from app.database import Base
+from app.database import Base, UTCDateTime
 
 
 class IngestionRun(Base):
@@ -16,10 +15,10 @@ class IngestionRun(Base):
 
     id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     dataset = Column(String(20), nullable=False)
-    requested_from = Column(DateTime(timezone=True), nullable=True)
-    requested_to = Column(DateTime(timezone=True), nullable=True)
-    started_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-    completed_at = Column(DateTime(timezone=True), nullable=True)
+    requested_from = Column(UTCDateTime, nullable=True)
+    requested_to = Column(UTCDateTime, nullable=True)
+    started_at = Column(UTCDateTime, nullable=False, server_default=func.now())
+    completed_at = Column(UTCDateTime, nullable=True)
     status = Column(String(20), nullable=False, default="running")  # running, success, failed, partial
     records_received = Column(Integer, nullable=False, default=0)
     records_inserted = Column(Integer, nullable=False, default=0)

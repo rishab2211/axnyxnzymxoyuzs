@@ -1,7 +1,29 @@
+from datetime import timezone
 from typing import Generator
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, DateTime, TypeDecorator
 from sqlalchemy.orm import declarative_base, sessionmaker, Session
 from app.core.config import settings
+
+
+class UTCDateTime(TypeDecorator):
+    """DateTime type that guarantees UTC timezone-awareness across all database dialects."""
+    impl = DateTime(timezone=True)
+    cache_ok = True
+
+    def process_result_value(self, value, dialect):
+        if value is not None and value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        elif value is not None:
+            return value.astimezone(timezone.utc)
+        return value
+
+    def process_bind_param(self, value, dialect):
+        if value is not None and value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        elif value is not None:
+            return value.astimezone(timezone.utc)
+        return value
+
 
 # Engine configuration with connection pooling
 engine = create_engine(

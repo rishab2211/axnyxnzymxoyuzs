@@ -5,6 +5,17 @@ from app.schemas.data_processing import (
     ValidatedWindforRecord,
     ValidatedHourlyActualRecord,
 )
+from app.schemas.analytics import (
+    AccuracyMetrics,
+    IntervalMatchRecord,
+    Actual30mRecord,
+    DashboardResponse,
+    DailyAccuracyTrend,
+    VintagePublication,
+    IntervalVintagesResponse,
+    WorstIntervalRecord,
+    DataQualitySummary,
+)
 
 __all__ = [
     "HealthResponse",
@@ -15,4 +26,13 @@ __all__ = [
     "ValidatedFuelHHRecord",
     "ValidatedWindforRecord",
     "ValidatedHourlyActualRecord",
+    "AccuracyMetrics",
+    "IntervalMatchRecord",
+    "Actual30mRecord",
+    "DashboardResponse",
+    "DailyAccuracyTrend",
+    "VintagePublication",
+    "IntervalVintagesResponse",
+    "WorstIntervalRecord",
+    "DataQualitySummary",
 ]
