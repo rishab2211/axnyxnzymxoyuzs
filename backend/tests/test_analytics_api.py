@@ -130,6 +130,17 @@ def test_accuracy_trend_endpoint(client: TestClient, db_session: Session):
     assert data[0]["matched_count"] == 1
 
 
+def test_accuracy_distribution_endpoint(client: TestClient, db_session: Session):
+    seed_test_data(db_session)
+    response = client.get("/api/accuracy/distribution?date_from=2026-01-01&date_to=2026-01-01")
+    assert response.status_code == 200
+    data = response.json()
+    assert "histogram" in data
+    assert "scatter" in data
+    assert "bins" in data["histogram"]
+    assert len(data["histogram"]["bins"]) > 0
+
+
 def test_data_quality_endpoint(client: TestClient, db_session: Session):
     seed_test_data(db_session)
     response = client.get("/api/data-quality?date_from=2026-01-01&date_to=2026-01-01")

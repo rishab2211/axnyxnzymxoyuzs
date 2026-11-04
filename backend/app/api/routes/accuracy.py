@@ -78,6 +78,40 @@ def get_accuracy_trend(
 
 
 @router.get(
+    "/distribution",
+    summary="Error distribution histogram and scatter coordinates",
+    description="Return histogram bins and scatter data comparing forecast vs actual for statistical diagnostics.",
+)
+def get_accuracy_distribution(
+    date_from: Optional[date] = Query(None, description="Start date (YYYY-MM-DD). Defaults to 2026-01-01."),
+    date_to: Optional[date] = Query(None, description="End date (YYYY-MM-DD). Defaults to 2026-01-31."),
+    decision_cutoff: Optional[str] = Query(None, description="Decision cutoff time in UTC (HH:MM). Defaults to 11:00."),
+    bins: int = Query(10, ge=5, le=30),
+    db: Session = Depends(get_db),
+):
+    d_from = date_from or date.fromisoformat(settings.EVALUATION_START_DATE)
+    d_to = date_to or date.fromisoformat(settings.EVALUATION_END_DATE)
+    if d_from > d_to:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="date_from cannot be after date_to.",
+        )
+    try:
+        return AnalyticsEngine.get_distribution(
+            db=db,
+            date_from=d_from,
+            date_to=d_to,
+            cutoff_str=decision_cutoff,
+            bins=bins,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to calculate error distribution: {exc}",
+        )
+
+
+@router.get(
     "/worst",
     response_model=List[WorstIntervalRecord],
     summary="Top forecast error intervals",
@@ -92,6 +126,11 @@ def get_worst_intervals(
 ) -> List[WorstIntervalRecord]:
     d_from = date_from or date.fromisoformat(settings.EVALUATION_START_DATE)
     d_to = date_to or date.fromisoformat(settings.EVALUATION_END_DATE)
+    if d_from > d_to:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="date_from cannot be after date_to.",
+        )
     try:
         return AnalyticsEngine.get_worst_intervals(
             db=db,

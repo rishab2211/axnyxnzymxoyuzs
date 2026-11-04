@@ -241,6 +241,40 @@ class AnalyticsEngine:
         )
 
     @classmethod
+    def get_distribution(
+        cls,
+        db: Session,
+        date_from: date,
+        date_to: date,
+        cutoff_str: Optional[str] = None,
+        bins: int = 10,
+    ) -> Dict[str, Any]:
+        """Compute error distribution histogram and scatter coordinates across date range."""
+        errors: List[float] = []
+        scatter_points: List[Dict[str, Any]] = []
+
+        curr_date = date_from
+        while curr_date <= date_to:
+            dash = cls.get_dashboard(db, curr_date, cutoff_str)
+            for s in dash.series:
+                if s.forecast_mw is not None and s.actual_hourly_mw is not None and s.error_mw is not None:
+                    errors.append(s.error_mw)
+                    scatter_points.append({
+                        "actual": s.actual_hourly_mw,
+                        "forecast": s.forecast_mw,
+                        "error": s.error_mw,
+                        "time": s.start_time,
+                    })
+            curr_date += timedelta(days=1)
+
+        hist = AccuracyEngine.compute_histogram(errors, bins=bins)
+        return {
+            "histogram": hist,
+            "scatter": scatter_points[:300],  # Sample limit for responsive rendering
+            "total_points": len(errors),
+        }
+
+    @classmethod
     def get_worst_intervals(
         cls,
         db: Session,
