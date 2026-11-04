@@ -7,6 +7,7 @@ import {
   ShieldCheck,
   Workflow,
   Wind,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -18,18 +19,37 @@ const navigationItems = [
   { name: 'Data Pipeline', to: '/pipeline', icon: Workflow },
 ];
 
-export const Sidebar: React.FC = () => {
+interface SidebarProps {
+  isOpen?: boolean;
+  onClose?: () => void;
+}
+
+const SidebarContent: React.FC<{ onClose?: () => void; isMobile?: boolean }> = ({
+  onClose,
+  isMobile,
+}) => {
   return (
-    <aside className="w-64 bg-slate-900 border-r border-slate-800 text-slate-300 flex flex-col shrink-0 min-h-screen">
+    <div className="flex flex-col h-full">
       {/* Brand Header */}
-      <div className="p-6 border-b border-slate-800/80 flex items-center gap-3">
-        <div className="w-9 h-9 rounded-lg bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-teal-400">
-          <Wind className="w-5 h-5" />
+      <div className="p-6 border-b border-slate-800/80 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-lg bg-teal-500/20 border border-teal-500/30 flex items-center justify-center text-teal-400">
+            <Wind className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-sm font-bold text-white tracking-wide">WindScope</h1>
+            <p className="text-[11px] text-slate-400 font-mono">Day-Ahead Intel</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-sm font-bold text-white tracking-wide">WindScope</h1>
-          <p className="text-[11px] text-slate-400 font-mono">Day-Ahead Intel</p>
-        </div>
+        {isMobile && onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        )}
       </div>
 
       {/* Navigation */}
@@ -43,6 +63,9 @@ export const Sidebar: React.FC = () => {
             <NavLink
               key={item.to}
               to={item.to}
+              onClick={() => {
+                if (isMobile && onClose) onClose();
+              }}
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors',
@@ -66,7 +89,7 @@ export const Sidebar: React.FC = () => {
           <span>Evaluation Scope</span>
         </div>
         <p className="text-slate-400 text-[11px] leading-relaxed">
-          National GB Wind Only (FUELHH & WINDFOR). Evaluation period: Jan 1–31, 2026.
+          National GB Wind Only (FUELHH &amp; WINDFOR). Evaluation period: Jan 1–31, 2026.
         </p>
       </div>
 
@@ -75,6 +98,30 @@ export const Sidebar: React.FC = () => {
         <span>v1.0.0 Production</span>
         <span className="px-1.5 py-0.5 rounded bg-slate-800 text-[10px] font-mono">BMRS LIVE</span>
       </div>
-    </aside>
+    </div>
+  );
+};
+
+export const Sidebar: React.FC<SidebarProps> = ({ isOpen = false, onClose }) => {
+  return (
+    <>
+      {/* Desktop Sidebar (lg and above) */}
+      <aside className="hidden lg:flex w-64 bg-slate-900 border-r border-slate-800 text-slate-300 flex-col shrink-0 min-h-screen">
+        <SidebarContent />
+      </aside>
+
+      {/* Mobile Drawer (screens below lg) */}
+      {isOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden flex">
+          <div
+            className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs transition-opacity"
+            onClick={onClose}
+          />
+          <aside className="relative w-72 max-w-[85vw] bg-slate-900 border-r border-slate-800 text-slate-300 flex flex-col h-full z-10 shadow-2xl">
+            <SidebarContent onClose={onClose} isMobile={true} />
+          </aside>
+        </div>
+      )}
+    </>
   );
 };

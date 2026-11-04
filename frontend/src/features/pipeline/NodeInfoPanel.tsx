@@ -87,7 +87,7 @@ export const NodeInfoPanel: React.FC<NodeInfoPanelProps> = ({
   };
 
   return (
-    <div className="w-96 bg-white border-l border-slate-200 shadow-xl flex flex-col h-full z-20 overflow-y-auto">
+    <div className="w-full sm:w-96 bg-white border-l border-slate-200 shadow-xl flex flex-col h-full absolute sm:relative right-0 top-0 z-20 overflow-y-auto">
       {/* Header */}
       <div className="p-5 border-b border-slate-100 flex items-start justify-between bg-slate-50">
         <div>
