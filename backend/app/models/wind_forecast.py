@@ -1,6 +1,7 @@
 from sqlalchemy import (
     Column,
     BigInteger,
+    Integer,
     DateTime,
     String,
     Numeric,
@@ -15,7 +16,7 @@ from app.database import Base
 class WindForecast(Base):
     __tablename__ = "wind_forecasts"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     start_time = Column(DateTime(timezone=True), nullable=False, index=True)
     publish_time = Column(DateTime(timezone=True), nullable=False, index=True)
     generation_mw = Column(Numeric(10, 2), nullable=False)

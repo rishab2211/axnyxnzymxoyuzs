@@ -1,9 +1,9 @@
 from sqlalchemy import (
     Column,
     BigInteger,
+    Integer,
     DateTime,
     String,
-    Integer,
     Text,
     JSON,
 )
@@ -14,7 +14,7 @@ from app.database import Base
 class IngestionRun(Base):
     __tablename__ = "ingestion_runs"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     dataset = Column(String(20), nullable=False)
     requested_from = Column(DateTime(timezone=True), nullable=True)
     requested_to = Column(DateTime(timezone=True), nullable=True)

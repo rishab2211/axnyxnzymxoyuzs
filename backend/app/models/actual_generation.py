@@ -1,6 +1,7 @@
 from sqlalchemy import (
     Column,
     BigInteger,
+    Integer,
     DateTime,
     Date,
     SmallInteger,
@@ -17,7 +18,7 @@ from app.database import Base
 class ActualGeneration(Base):
     __tablename__ = "actual_generation"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BigInteger().with_variant(Integer, "sqlite"), primary_key=True, autoincrement=True)
     start_time = Column(DateTime(timezone=True), nullable=False, index=True)
     publish_time = Column(DateTime(timezone=True), nullable=False, index=True)
     settlement_date = Column(Date, nullable=False, index=True)
