@@ -1,0 +1,115 @@
+import type {
+  DashboardResponse,
+  IntervalMatchRecord,
+  IntervalVintagesResponse,
+  AccuracyMetrics,
+  DailyAccuracyTrend,
+  WorstIntervalRecord,
+  DataQualitySummary,
+} from '@/types';
+
+const API_BASE = '/api';
+
+class ApiError extends Error {
+  status?: number;
+
+  constructor(message: string, status?: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
+async function fetchJson<T>(url: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(url, options);
+  if (!res.ok) {
+    let errorDetail = `Request failed with status ${res.status}`;
+    try {
+      const body = await res.json();
+      if (body.detail) errorDetail = body.detail;
+    } catch {
+      // Ignore json parse error on non-json error responses
+    }
+    throw new ApiError(errorDetail, res.status);
+  }
+  return res.json() as Promise<T>;
+}
+
+export const api = {
+  getDashboard: (deliveryDate: string, decisionCutoff: string) => {
+    const params = new URLSearchParams({
+      delivery_date: deliveryDate,
+      decision_cutoff: decisionCutoff,
+    });
+    return fetchJson<DashboardResponse>(`${API_BASE}/dashboard?${params.toString()}`);
+  },
+
+  getForecasts: (deliveryDate: string, decisionCutoff: string) => {
+    const params = new URLSearchParams({
+      delivery_date: deliveryDate,
+      decision_cutoff: decisionCutoff,
+    });
+    return fetchJson<IntervalMatchRecord[]>(`${API_BASE}/forecasts?${params.toString()}`);
+  },
+
+  getForecastVintages: (deliveryDate: string, decisionCutoff: string) => {
+    const params = new URLSearchParams({
+      delivery_date: deliveryDate,
+      decision_cutoff: decisionCutoff,
+    });
+    return fetchJson<IntervalVintagesResponse>(`${API_BASE}/forecasts/vintages?${params.toString()}`);
+  },
+
+  getAccuracySummary: (dateFrom: string, dateTo: string, decisionCutoff: string) => {
+    const params = new URLSearchParams({
+      date_from: dateFrom,
+      date_to: dateTo,
+      decision_cutoff: decisionCutoff,
+    });
+    return fetchJson<AccuracyMetrics>(`${API_BASE}/accuracy/summary?${params.toString()}`);
+  },
+
+  getAccuracyTrend: (dateFrom: string, dateTo: string, decisionCutoff: string) => {
+    const params = new URLSearchParams({
+      date_from: dateFrom,
+      date_to: dateTo,
+      decision_cutoff: decisionCutoff,
+    });
+    return fetchJson<DailyAccuracyTrend[]>(`${API_BASE}/accuracy/trend?${params.toString()}`);
+  },
+
+  getWorstIntervals: (dateFrom: string, dateTo: string, decisionCutoff: string, limit = 10) => {
+    const params = new URLSearchParams({
+      date_from: dateFrom,
+      date_to: dateTo,
+      decision_cutoff: decisionCutoff,
+      limit: limit.toString(),
+    });
+    return fetchJson<WorstIntervalRecord[]>(`${API_BASE}/accuracy/worst?${params.toString()}`);
+  },
+
+  getDataQuality: (dateFrom: string, dateTo: string) => {
+    const params = new URLSearchParams({
+      date_from: dateFrom,
+      date_to: dateTo,
+    });
+    return fetchJson<DataQualitySummary>(`${API_BASE}/data-quality?${params.toString()}`);
+  },
+
+  getHealth: () => {
+    return fetchJson<any>(`${API_BASE}/health`);
+  },
+
+  triggerIngest: (dataset: string, startDate?: string, endDate?: string) => {
+    return fetchJson<any>(`${API_BASE}/ingest`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        dataset,
+        start_date: startDate,
+        end_date: endDate,
+        force_reload: false,
+      }),
+    });
+  },
+};
