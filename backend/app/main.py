@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 from fastapi import FastAPI
@@ -8,7 +9,22 @@ from app.api.routes import api_router
 from app.api.routes.health import router as health_router
 from app.core.config import settings
 from app.core.logging import logger
-from app.database import engine, Base
+from app.database import engine, Base, SessionLocal
+from app.services.ingestion import IngestionService
+
+
+async def _run_startup_ingest():
+    """Run initial data ingestion in the background if database tables are empty."""
+    logger.info("Auto-ingestion background worker initiated...")
+    db = SessionLocal()
+    try:
+        service = IngestionService()
+        runs = await service.ingest_all(db=db)
+        logger.info(f"Auto-ingestion background worker completed. Runs: {[r.status for r in runs]}")
+    except Exception as exc:
+        logger.error(f"Auto-ingestion background worker error: {exc}", exc_info=True)
+    finally:
+        db.close()
 
 
 @asynccontextmanager
@@ -36,7 +52,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             logger.info(f"Current records in DB: actual_generation={actual_count}, wind_forecasts={forecast_count}")
 
             if settings.AUTO_INGEST_ON_STARTUP and (actual_count == 0 or forecast_count == 0):
-                logger.info("AUTO_INGEST_ON_STARTUP=True and database is empty. Auto-ingest flag is primed.")
+                logger.info("AUTO_INGEST_ON_STARTUP=True and DB is empty. Launching auto-ingestion task...")
+                asyncio.create_task(_run_startup_ingest())
     except Exception as exc:
         logger.warning(
             f"Database not available on startup: {exc}. "
