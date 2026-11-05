@@ -20,6 +20,41 @@ interface ErrorDistributionChartProps {
   };
 }
 
+interface DistTooltipItem {
+  payload: {
+    name: string;
+    count: number;
+    pct: string;
+    min: number;
+    max: number;
+  };
+}
+
+const DistributionTooltip: React.FC<{
+  active?: boolean;
+  payload?: DistTooltipItem[];
+}> = ({ active, payload }) => {
+  if (active && payload && payload.length) {
+    const item = payload[0].payload;
+    return (
+      <div className="bg-slate-900 text-white rounded-lg p-3 shadow-lg text-xs space-y-1 border border-slate-700">
+        <p className="font-semibold text-slate-200">Error Band: {item.name} MW</p>
+        <p className="text-teal-400">
+          Intervals: <span className="font-mono font-medium">{item.count}</span> ({item.pct}%)
+        </p>
+        <p className="text-slate-400 text-[11px]">
+          {item.max <= 0
+            ? 'Underforecasting'
+            : item.min >= 0
+            ? 'Overforecasting'
+            : 'Near-zero balanced error'}
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
+
 export const ErrorDistributionChart: React.FC<ErrorDistributionChartProps> = ({
   distribution,
 }) => {
@@ -35,28 +70,6 @@ export const ErrorDistributionChart: React.FC<ErrorDistributionChartProps> = ({
     if (max <= 0) return '#f43f5e'; // Underforecast (Actual > Forecast -> Error < 0)
     if (min >= 0) return '#f59e0b'; // Overforecast (Forecast > Actual -> Error > 0)
     return '#0d9488'; // Centered near zero error
-  };
-
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const item = payload[0].payload;
-      return (
-        <div className="bg-slate-900 text-white rounded-lg p-3 shadow-lg text-xs space-y-1 border border-slate-700">
-          <p className="font-semibold text-slate-200">Error Band: {item.name} MW</p>
-          <p className="text-teal-400">
-            Intervals: <span className="font-mono font-medium">{item.count}</span> ({item.pct}%)
-          </p>
-          <p className="text-slate-400 text-[11px]">
-            {item.max <= 0
-              ? 'Underforecasting'
-              : item.min >= 0
-              ? 'Overforecasting'
-              : 'Near-zero balanced error'}
-          </p>
-        </div>
-      );
-    }
-    return null;
   };
 
   return (
@@ -77,7 +90,7 @@ export const ErrorDistributionChart: React.FC<ErrorDistributionChartProps> = ({
               height={45}
             />
             <YAxis tick={{ fill: '#64748b', fontSize: 11 }} />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<DistributionTooltip />} />
             <Bar dataKey="count" radius={[4, 4, 0, 0]}>
               {data.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={getBarColor(entry.min, entry.max)} />

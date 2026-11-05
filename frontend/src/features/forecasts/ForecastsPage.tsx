@@ -6,13 +6,27 @@ import { api } from '@/services/api';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SkeletonCard } from '@/components/ui/SkeletonCard';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { EmptyState } from '@/components/ui/EmptyState';
+import { SmartIngestionTrigger } from '@/components/ui/SmartIngestionTrigger';
 import { formatTimeUTC, formatDateTimeUTC, formatMW, formatDateUTC } from '@/lib/formatters';
-import { Clock, Layers } from 'lucide-react';
+import { Clock, Layers, ChevronLeft, ChevronRight } from 'lucide-react';
 
 export const ForecastsPage: React.FC = () => {
   const { deliveryDate, decisionCutoff } = useFilters();
-  const [selectedIntervalIndex, setSelectedIntervalIndex] = useState<number>(0);
+  const filterKey = `${deliveryDate}-${decisionCutoff}`;
+  const [selection, setSelection] = useState<{ key: string; index: number }>({
+    key: filterKey,
+    index: 0,
+  });
+
+  // Derived selected interval: automatically resets to 0 when filterKey changes without useEffect cascading renders
+  const selectedIntervalIndex = selection.key === filterKey ? selection.index : 0;
+  const setSelectedIntervalIndex = (updater: number | ((prev: number) => number)) => {
+    setSelection((prev) => {
+      const current = prev.key === filterKey ? prev.index : 0;
+      const next = typeof updater === 'function' ? updater(current) : updater;
+      return { key: filterKey, index: next };
+    });
+  };
 
   const { data: forecasts, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['forecasts', deliveryDate, decisionCutoff],
@@ -51,9 +65,12 @@ export const ForecastsPage: React.FC = () => {
       {!isLoading && !isError && forecasts && (
         <div className="space-y-8">
           {forecasts.length === 0 ? (
-            <EmptyState
-              title="No Forecasts Available"
-              description={`No forecast records available for ${deliveryDate}.`}
+            <SmartIngestionTrigger
+              startDate={deliveryDate}
+              title={`No Forecast Records Found for ${formatDateUTC(deliveryDate)}`}
+              description={`No WINDFOR forecasts or actual records are loaded for delivery date ${formatDateUTC(deliveryDate)} with cutoff ${decisionCutoff} UTC.`}
+              buttonLabel={`Ingest Data for ${formatDateUTC(deliveryDate)}`}
+              onSuccess={() => refetch()}
             />
           ) : (
             <>
@@ -129,17 +146,42 @@ export const ForecastsPage: React.FC = () => {
                 {/* Vintage Evolution Inspector Panel */}
                 <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs flex flex-col justify-between">
                   <div>
-                    <div className="flex items-center gap-2 pb-3 border-b border-slate-100 text-slate-900 font-semibold text-sm">
-                      <Layers className="w-4 h-4 text-teal-600" />
-                      <span>Publication Evolution</span>
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-100 text-slate-900 font-semibold text-sm">
+                      <div className="flex items-center gap-2">
+                        <Layers className="w-4 h-4 text-teal-600" />
+                        <span>Publication Evolution</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          disabled={selectedIntervalIndex <= 0}
+                          onClick={() => setSelectedIntervalIndex((prev) => Math.max(0, prev - 1))}
+                          className="p-1 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                          title="Previous Interval"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                        <span className="text-xs font-mono text-slate-500 px-1">
+                          {selectedIntervalIndex + 1}/{forecasts.length || 24}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={selectedIntervalIndex >= forecasts.length - 1}
+                          onClick={() => setSelectedIntervalIndex((prev) => Math.min(forecasts.length - 1, prev + 1))}
+                          className="p-1 rounded hover:bg-slate-100 text-slate-500 hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                          title="Next Interval"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
 
                     {selectedIntervalVintages ? (
                       <div className="mt-4 space-y-4">
                         <div>
-                          <div className="text-xs text-slate-500">Target Settlement Period</div>
+                          <div className="text-xs text-slate-500">Target Delivery Interval (Hourly)</div>
                           <div className="text-lg font-bold text-slate-900 font-sans">
-                            {formatTimeUTC(selectedIntervalVintages.start_time)} UTC
+                            {formatDateUTC(selectedIntervalVintages.start_time)} • {formatTimeUTC(selectedIntervalVintages.start_time)} UTC
                           </div>
                           <div className="text-xs text-slate-500 font-mono mt-0.5">
                             Outturn: {formatMW(selectedIntervalVintages.actual_generation_mw)}

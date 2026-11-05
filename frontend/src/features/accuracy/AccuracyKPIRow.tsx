@@ -11,7 +11,7 @@ export const AccuracyKPIRow: React.FC<AccuracyKPIRowProps> = ({ metrics }) => {
   const biasStatus =
     metrics.bias === null
       ? 'neutral'
-      : Math.abs(metrics.bias) < 250
+      : Math.abs(metrics.bias) < 200
       ? 'good'
       : metrics.bias > 0
       ? 'warning'
@@ -25,7 +25,7 @@ export const AccuracyKPIRow: React.FC<AccuracyKPIRowProps> = ({ metrics }) => {
         description="Average error magnitude across period"
         formula="Mean(abs(Forecast - Actual))"
         interpretation="Lower is better"
-        status={metrics.mae !== null && metrics.mae < 600 ? 'good' : 'neutral'}
+        status={metrics.mae !== null && metrics.mae < 500 ? 'good' : 'neutral'}
         sampleCount={metrics.matched_observations}
       />
 
@@ -61,7 +61,7 @@ export const AccuracyKPIRow: React.FC<AccuracyKPIRowProps> = ({ metrics }) => {
         description="Error relative to total wind outturn"
         formula="Sum(abs(Error)) / Sum(Actual) * 100"
         interpretation="Lower is better"
-        status={metrics.wape !== null && metrics.wape < 15 ? 'good' : 'neutral'}
+        status={metrics.wape !== null && metrics.wape < 10 ? 'good' : 'neutral'}
         sampleCount={metrics.matched_observations}
       />
 

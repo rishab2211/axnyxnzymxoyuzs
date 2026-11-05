@@ -8,7 +8,7 @@ import { ForecastActualChart } from './ForecastActualChart';
 import { ErrorChart } from './ErrorChart';
 import { SkeletonCard } from '@/components/ui/SkeletonCard';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { EmptyState } from '@/components/ui/EmptyState';
+import { SmartIngestionTrigger } from '@/components/ui/SmartIngestionTrigger';
 import { formatDateUTC } from '@/lib/formatters';
 
 export const DashboardPage: React.FC = () => {
@@ -49,17 +49,12 @@ export const DashboardPage: React.FC = () => {
       {!isLoading && !isError && data && (
         <div className="space-y-8">
           {data.metrics.matched_observations === 0 ? (
-            <EmptyState
-              title="No Forecast Observations Found"
-              description={`No eligible forecasts or actual records found for delivery date ${deliveryDate} with cutoff ${decisionCutoff} UTC. Please verify that data has been ingested.`}
-              action={
-                <button
-                  onClick={() => api.triggerIngest('ALL')}
-                  className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors"
-                >
-                  Trigger Full Ingestion
-                </button>
-              }
+            <SmartIngestionTrigger
+              startDate={deliveryDate}
+              title={`No Data Found for ${formatDateUTC(deliveryDate)}`}
+              description={`No eligible forecasts or actual generation records were found in the database for delivery date ${formatDateUTC(deliveryDate)} with cutoff ${decisionCutoff} UTC.`}
+              buttonLabel={`Ingest Data for ${formatDateUTC(deliveryDate)}`}
+              onSuccess={() => refetch()}
             />
           ) : (
             <>

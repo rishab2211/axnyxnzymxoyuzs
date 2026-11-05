@@ -23,6 +23,42 @@ interface ForecastActualScatterChartProps {
   scatter: ScatterPoint[];
 }
 
+const ScatterTooltip: React.FC<{
+  active?: boolean;
+  payload?: Array<{ payload: ScatterPoint }>;
+}> = ({ active, payload }) => {
+  if (active && payload && payload.length) {
+    const p = payload[0].payload;
+    return (
+      <div className="bg-slate-900 text-white rounded-lg p-3 shadow-lg text-xs space-y-1 border border-slate-700">
+        <p className="font-semibold text-slate-200">
+          {formatDateUTC(p.time)} • {formatTimeUTC(p.time)} UTC
+        </p>
+        <div className="flex justify-between gap-4">
+          <span className="text-slate-400">Actual Outturn:</span>
+          <span className="font-mono font-medium text-emerald-400">{Math.round(p.actual)} MW</span>
+        </div>
+        <div className="flex justify-between gap-4">
+          <span className="text-slate-400">Day-Ahead Forecast:</span>
+          <span className="font-mono font-medium text-teal-400">{Math.round(p.forecast)} MW</span>
+        </div>
+        <div className="flex justify-between gap-4 border-t border-slate-800 pt-1">
+          <span className="text-slate-400">Error (F - A):</span>
+          <span
+            className={`font-mono font-bold ${
+              p.error > 0 ? 'text-amber-400' : p.error < 0 ? 'text-rose-400' : 'text-slate-300'
+            }`}
+          >
+            {p.error > 0 ? '+' : ''}
+            {Math.round(p.error)} MW
+          </span>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 export const ForecastActualScatterChart: React.FC<ForecastActualScatterChartProps> = ({
   scatter,
 }) => {
@@ -32,39 +68,6 @@ export const ForecastActualScatterChart: React.FC<ForecastActualScatterChartProp
     1000
   );
   const ceiling = Math.ceil(maxVal / 1000) * 1000;
-
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const p = payload[0].payload as ScatterPoint;
-      return (
-        <div className="bg-slate-900 text-white rounded-lg p-3 shadow-lg text-xs space-y-1 border border-slate-700">
-          <p className="font-semibold text-slate-200">
-            {formatDateUTC(p.time)} • {formatTimeUTC(p.time)} UTC
-          </p>
-          <div className="flex justify-between gap-4">
-            <span className="text-slate-400">Actual Outturn:</span>
-            <span className="font-mono font-medium text-emerald-400">{Math.round(p.actual)} MW</span>
-          </div>
-          <div className="flex justify-between gap-4">
-            <span className="text-slate-400">Day-Ahead Forecast:</span>
-            <span className="font-mono font-medium text-teal-400">{Math.round(p.forecast)} MW</span>
-          </div>
-          <div className="flex justify-between gap-4 border-t border-slate-800 pt-1">
-            <span className="text-slate-400">Error (F - A):</span>
-            <span
-              className={`font-mono font-bold ${
-                p.error > 0 ? 'text-amber-400' : p.error < 0 ? 'text-rose-400' : 'text-slate-300'
-              }`}
-            >
-              {p.error > 0 ? '+' : ''}
-              {Math.round(p.error)} MW
-            </span>
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <ChartContainer
@@ -105,7 +108,7 @@ export const ForecastActualScatterChart: React.FC<ForecastActualScatterChartProp
                 fontSize: 11,
               }}
             />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<ScatterTooltip />} />
             {/* Parity Line (y = x) */}
             <ReferenceLine
               segment={[
@@ -115,6 +118,12 @@ export const ForecastActualScatterChart: React.FC<ForecastActualScatterChartProp
               stroke="#64748b"
               strokeDasharray="4 4"
               strokeWidth={1.5}
+              label={{
+                value: 'Parity line (y = x)',
+                position: 'insideTopRight',
+                fill: '#64748b',
+                fontSize: 10,
+              }}
             />
             <Scatter
               name="Intervals"

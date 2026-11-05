@@ -10,13 +10,23 @@ import { ForecastActualScatterChart } from './ForecastActualScatterChart';
 import { WorstIntervalsTable } from './WorstIntervalsTable';
 import { SkeletonCard } from '@/components/ui/SkeletonCard';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { EmptyState } from '@/components/ui/EmptyState';
+import { SmartIngestionTrigger } from '@/components/ui/SmartIngestionTrigger';
+import { DateInput } from '@/components/ui/DateInput';
+import { formatDateUTC } from '@/lib/formatters';
 import { Calendar } from 'lucide-react';
 
 export const AccuracyPage: React.FC = () => {
   const { decisionCutoff } = useFilters();
   const [dateFrom, setDateFrom] = useState('2026-01-01');
   const [dateTo, setDateTo] = useState('2026-01-31');
+
+  const isDateRangeValid = dateFrom <= dateTo;
+
+  const { data: bounds } = useQuery({
+    queryKey: ['data-bounds'],
+    queryFn: () => api.getDataBounds(),
+    staleTime: 60_000,
+  });
 
   const {
     data: summary,
@@ -26,6 +36,7 @@ export const AccuracyPage: React.FC = () => {
   } = useQuery({
     queryKey: ['accuracy-summary', dateFrom, dateTo, decisionCutoff],
     queryFn: () => api.getAccuracySummary(dateFrom, dateTo, decisionCutoff),
+    enabled: isDateRangeValid,
   });
 
   const {
@@ -35,6 +46,7 @@ export const AccuracyPage: React.FC = () => {
   } = useQuery({
     queryKey: ['accuracy-trend', dateFrom, dateTo, decisionCutoff],
     queryFn: () => api.getAccuracyTrend(dateFrom, dateTo, decisionCutoff),
+    enabled: isDateRangeValid,
   });
 
   const {
@@ -44,6 +56,7 @@ export const AccuracyPage: React.FC = () => {
   } = useQuery({
     queryKey: ['accuracy-distribution', dateFrom, dateTo, decisionCutoff],
     queryFn: () => api.getAccuracyDistribution(dateFrom, dateTo, decisionCutoff, 12),
+    enabled: isDateRangeValid,
   });
 
   const {
@@ -53,14 +66,23 @@ export const AccuracyPage: React.FC = () => {
   } = useQuery({
     queryKey: ['accuracy-worst', dateFrom, dateTo, decisionCutoff],
     queryFn: () => api.getWorstIntervals(dateFrom, dateTo, decisionCutoff, 10),
+    enabled: isDateRangeValid,
   });
 
-  const isLoading = isSummaryLoading || isTrendsLoading || isDistLoading || isWorstLoading;
   const isError = Boolean(summaryError || trendsError || distError || worstError);
 
   const setRangePreset = (start: string, end: string) => {
     setDateFrom(start);
     setDateTo(end);
+  };
+
+  const handleLastNDays = (days: number) => {
+    const endStr = bounds?.max_date || '2026-01-31';
+    const end = new Date(endStr + 'T00:00:00Z');
+    const start = new Date(end);
+    start.setUTCDate(start.getUTCDate() - (days - 1));
+    setDateFrom(start.toISOString().slice(0, 10));
+    setDateTo(endStr);
   };
 
   return (
@@ -73,103 +95,84 @@ export const AccuracyPage: React.FC = () => {
           <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg text-xs font-medium text-slate-600">
             <button
               type="button"
-              onClick={() => setRangePreset('2026-01-01', '2026-01-31')}
-              className={`px-2 py-1 rounded transition-colors ${
-                dateFrom === '2026-01-01' && dateTo === '2026-01-31'
-                  ? 'bg-white text-slate-900 shadow-xs'
+              onClick={() => {
+                if (bounds?.min_date && bounds?.max_date) {
+                  setRangePreset(bounds.min_date, bounds.max_date);
+                } else {
+                  setRangePreset('2026-01-01', '2026-01-31');
+                }
+              }}
+              className={`px-2.5 py-1 rounded transition-colors ${
+                (bounds && dateFrom === bounds.min_date && dateTo === bounds.max_date) ||
+                (dateFrom === '2026-01-01' && dateTo === '2026-01-31')
+                  ? 'bg-white text-slate-900 shadow-xs font-semibold'
                   : 'hover:text-slate-900'
               }`}
             >
-              Full Jan
+              Full Range
             </button>
             <button
               type="button"
-              onClick={() => setRangePreset('2026-01-01', '2026-01-07')}
-              className={`px-2 py-1 rounded transition-colors ${
-                dateFrom === '2026-01-01' && dateTo === '2026-01-07'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'hover:text-slate-900'
-              }`}
+              onClick={() => handleLastNDays(7)}
+              className="px-2 py-1 rounded hover:text-slate-900 transition-colors"
             >
-              W1 (1-7)
+              Last 7D
             </button>
             <button
               type="button"
-              onClick={() => setRangePreset('2026-01-08', '2026-01-14')}
-              className={`px-2 py-1 rounded transition-colors ${
-                dateFrom === '2026-01-08' && dateTo === '2026-01-14'
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'hover:text-slate-900'
-              }`}
+              onClick={() => handleLastNDays(14)}
+              className="px-2 py-1 rounded hover:text-slate-900 transition-colors"
             >
-              W2 (8-14)
+              Last 14D
             </button>
             <button
               type="button"
-              onClick={() => setRangePreset('2026-01-15', '2026-01-21')}
+              onClick={() => setRangePreset('2026-01-01', '2026-01-15')}
               className={`px-2 py-1 rounded transition-colors ${
-                dateFrom === '2026-01-15' && dateTo === '2026-01-21'
-                  ? 'bg-white text-slate-900 shadow-xs'
+                dateFrom === '2026-01-01' && dateTo === '2026-01-15'
+                  ? 'bg-white text-slate-900 shadow-xs font-semibold'
                   : 'hover:text-slate-900'
               }`}
             >
-              W3 (15-21)
+              01–15 Jan
             </button>
             <button
               type="button"
-              onClick={() => setRangePreset('2026-01-22', '2026-01-31')}
+              onClick={() => setRangePreset('2026-01-16', '2026-01-31')}
               className={`px-2 py-1 rounded transition-colors ${
-                dateFrom === '2026-01-22' && dateTo === '2026-01-31'
-                  ? 'bg-white text-slate-900 shadow-xs'
+                dateFrom === '2026-01-16' && dateTo === '2026-01-31'
+                  ? 'bg-white text-slate-900 shadow-xs font-semibold'
                   : 'hover:text-slate-900'
               }`}
             >
-              W4 (22-31)
+              16–31 Jan
             </button>
           </div>
 
           {/* Date range pickers */}
-          <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs shadow-xs">
-            <Calendar className="w-3.5 h-3.5 text-slate-400" />
-            <input
-              type="date"
-              min="2026-01-01"
-              max="2026-01-31"
+          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs shadow-xs">
+            <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0 pointer-events-none" />
+            <DateInput
               value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="text-xs font-medium text-slate-800 bg-transparent focus:outline-none"
+              onChange={setDateFrom}
             />
-            <span className="text-slate-400">to</span>
-            <input
-              type="date"
-              min="2026-01-01"
-              max="2026-01-31"
+            <span className="text-slate-400 font-sans">to</span>
+            <DateInput
               value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="text-xs font-medium text-slate-800 bg-transparent focus:outline-none"
+              onChange={setDateTo}
             />
           </div>
         </div>
       }
     >
       <div className="space-y-6">
-        {isLoading && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-              <SkeletonCard />
-              <SkeletonCard />
-              <SkeletonCard />
-              <SkeletonCard />
-              <SkeletonCard />
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <SkeletonCard className="h-80" />
-              <SkeletonCard className="h-80" />
-            </div>
+        {!isDateRangeValid && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl text-xs font-medium flex items-center gap-2">
+            <span>Invalid Date Range: Start date ({dateFrom}) cannot be after end date ({dateTo}). Please select a valid evaluation period.</span>
           </div>
         )}
 
-        {isError && (
+        {isError && isDateRangeValid && (
           <ErrorState
             title="Failed to Load Accuracy Analytics"
             message="Unable to compute statistical accuracy metrics. Verify database connection and date filters."
@@ -177,28 +180,60 @@ export const AccuracyPage: React.FC = () => {
           />
         )}
 
-        {!isLoading && !isError && summary && summary.matched_observations === 0 && (
-          <EmptyState
-            title="No Matched Forecasts in Selected Date Range"
-            description="No paired forecast and actual generation records found for this period. Try extending the date range or adjusting the decision cutoff."
+        {isDateRangeValid && !isError && summary && summary.matched_observations === 0 && !isSummaryLoading && (
+          <SmartIngestionTrigger
+            startDate={dateFrom}
+            endDate={dateTo}
+            title={`No Matched Records for ${formatDateUTC(dateFrom)} to ${formatDateUTC(dateTo)}`}
+            description={`No paired forecast and actual generation records exist in the database for ${formatDateUTC(dateFrom)} to ${formatDateUTC(dateTo)}. Click below to ingest from Elexon BMRS.`}
+            buttonLabel={`Ingest Data for ${formatDateUTC(dateFrom)} to ${formatDateUTC(dateTo)}`}
+            onSuccess={() => refetchSummary()}
           />
         )}
 
-        {!isLoading && !isError && summary && summary.matched_observations > 0 && (
+        {isDateRangeValid && !isError && (
           <>
             {/* KPI Cards Header */}
-            <AccuracyKPIRow metrics={summary} />
+            {isSummaryLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+                <SkeletonCard />
+              </div>
+            ) : summary && summary.matched_observations > 0 ? (
+              <AccuracyKPIRow metrics={summary} />
+            ) : null}
 
             {/* Row 1: Daily Trend and Error Distribution */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {trends && <AccuracyTrendChart data={trends} />}
-              {distribution && <ErrorDistributionChart distribution={distribution.histogram} />}
+              {isTrendsLoading ? (
+                <SkeletonCard className="h-80" />
+              ) : trends ? (
+                <AccuracyTrendChart data={trends} />
+              ) : null}
+
+              {isDistLoading ? (
+                <SkeletonCard className="h-80" />
+              ) : distribution ? (
+                <ErrorDistributionChart distribution={distribution.histogram} />
+              ) : null}
             </div>
 
             {/* Row 2: Scatter Plot & Worst-N Intervals */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {distribution && <ForecastActualScatterChart scatter={distribution.scatter} />}
-              {worst && <WorstIntervalsTable records={worst} />}
+              {isDistLoading ? (
+                <SkeletonCard className="h-80" />
+              ) : distribution ? (
+                <ForecastActualScatterChart scatter={distribution.scatter} />
+              ) : null}
+
+              {isWorstLoading ? (
+                <SkeletonCard className="h-80" />
+              ) : worst ? (
+                <WorstIntervalsTable records={worst} />
+              ) : null}
             </div>
           </>
         )}

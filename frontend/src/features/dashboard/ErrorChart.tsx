@@ -18,31 +18,43 @@ interface ErrorChartProps {
   series: IntervalMatchRecord[];
 }
 
+interface ErrorTooltipItem {
+  payload: {
+    time: string;
+    error: number | null;
+    isOverforecast: boolean;
+  };
+}
+
+const ErrorChartTooltip: React.FC<{
+  active?: boolean;
+  payload?: ErrorTooltipItem[];
+  label?: string;
+}> = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    if (data.error === null) return null;
+    return (
+      <div className="bg-slate-900 text-white p-2.5 rounded-lg shadow-xl text-xs border border-slate-700">
+        <div className="text-slate-400">{label} UTC</div>
+        <div className="font-bold text-sm mt-0.5">
+          Error: {data.error > 0 ? `+${data.error}` : data.error} MW
+        </div>
+        <div className="text-[11px] text-slate-300 mt-1">
+          {data.error > 0 ? 'Overforecast (Procurement Surplus)' : (data.error < 0 ? 'Underforecast (Procurement Shortfall)' : 'Zero Deviation')}
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
+
 export const ErrorChart: React.FC<ErrorChartProps> = ({ series }) => {
   const chartData = series.map((item) => ({
     time: formatTimeUTC(item.start_time),
     error: item.error_mw,
     isOverforecast: item.error_mw !== null && item.error_mw > 0,
   }));
-
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload;
-      if (data.error === null) return null;
-      return (
-        <div className="bg-slate-900 text-white p-2.5 rounded-lg shadow-xl text-xs border border-slate-700">
-          <div className="text-slate-400">{label} UTC</div>
-          <div className="font-bold text-sm mt-0.5">
-            Error: {data.error > 0 ? `+${data.error}` : data.error} MW
-          </div>
-          <div className="text-[11px] text-slate-300 mt-1">
-            {data.error > 0 ? 'Overforecast (Procurement Surplus)' : (data.error < 0 ? 'Underforecast (Procurement Shortfall)' : 'Zero Deviation')}
-          </div>
-        </div>
-      );
-    }
-    return null;
-  };
 
   return (
     <ChartContainer
@@ -66,18 +78,40 @@ export const ErrorChart: React.FC<ErrorChartProps> = ({ series }) => {
               tickFormatter={(v) => `${v}`}
               unit=" MW"
             />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<ErrorChartTooltip />} />
             <ReferenceLine y={0} stroke="#475569" strokeWidth={1.5} />
             <Bar dataKey="error" radius={[2, 2, 0, 0]}>
               {chartData.map((entry, index) => (
                 <Cell
                   key={`cell-${index}`}
-                  fill={entry.error === null ? '#CBD5E1' : (entry.isOverforecast ? '#D97706' : '#DC2626')}
+                  fill={
+                    entry.error === null
+                      ? '#CBD5E1'
+                      : entry.error === 0
+                      ? '#64748B'
+                      : entry.isOverforecast
+                      ? '#D97706'
+                      : '#DC2626'
+                  }
                 />
               ))}
             </Bar>
           </BarChart>
         </ResponsiveContainer>
+      </div>
+      <div className="flex items-center justify-center gap-6 mt-2 text-xs text-slate-500">
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded bg-[#DC2626] inline-block" />
+          Underforecast (Error &lt; 0 MW)
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded bg-[#64748B] inline-block" />
+          Exact Match (0 MW)
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="w-3 h-3 rounded bg-[#D97706] inline-block" />
+          Overforecast (Error &gt; 0 MW)
+        </span>
       </div>
     </ChartContainer>
   );
