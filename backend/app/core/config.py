@@ -1,3 +1,6 @@
+import os
+import shutil
+from pathlib import Path
 from typing import List, Union
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -26,6 +29,19 @@ class Settings(BaseSettings):
                 return v.replace("postgres://", "postgresql+psycopg://", 1)
             elif v.startswith("postgresql://") and not v.startswith("postgresql+"):
                 return v.replace("postgresql://", "postgresql+psycopg://", 1)
+            elif v.startswith("sqlite:///"):
+                # If pointing to a read-only filesystem (e.g. /var/task on Vercel), copy to /tmp
+                db_path_str = v.replace("sqlite:///", "")
+                db_path = Path(db_path_str)
+                if db_path.exists():
+                    parent_dir = db_path.parent
+                    if not os.access(parent_dir, os.W_OK):
+                        tmp_dir = Path("/tmp")
+                        if tmp_dir.exists() and os.access(tmp_dir, os.W_OK):
+                            tmp_db = tmp_dir / db_path.name
+                            if not tmp_db.exists() or tmp_db.stat().st_size == 0:
+                                shutil.copy2(str(db_path), str(tmp_db))
+                            return f"sqlite:///{tmp_db.resolve()}"
         return v
 
     # CORS

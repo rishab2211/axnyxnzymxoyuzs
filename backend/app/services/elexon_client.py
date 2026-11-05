@@ -134,13 +134,22 @@ class ElexonClient:
 
     async def fetch_windfor(
         self,
-        publish_from: datetime,
-        publish_to: datetime,
+        publish_from: Union[datetime, date],
+        publish_to: Union[datetime, date],
     ) -> List[Dict[str, Any]]:
         """Fetch wind generation forecast publications from WINDFOR/stream for a publication window."""
-        # Ensure UTC ISO format e.g. 2026-01-01T00:00:00Z
-        p_from_str = publish_from.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-        p_to_str = publish_to.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        if isinstance(publish_from, datetime):
+            p_from_dt = publish_from.astimezone(timezone.utc) if publish_from.tzinfo else publish_from.replace(tzinfo=timezone.utc)
+        else:
+            p_from_dt = datetime.combine(publish_from, datetime.min.time(), tzinfo=timezone.utc)
+
+        if isinstance(publish_to, datetime):
+            p_to_dt = publish_to.astimezone(timezone.utc) if publish_to.tzinfo else publish_to.replace(tzinfo=timezone.utc)
+        else:
+            p_to_dt = datetime.combine(publish_to, datetime.max.time(), tzinfo=timezone.utc)
+
+        p_from_str = p_from_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+        p_to_str = p_to_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
 
         params = {
             "publishDateTimeFrom": p_from_str,
