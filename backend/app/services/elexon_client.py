@@ -1,7 +1,7 @@
 import asyncio
 import random
 from datetime import datetime, date, timedelta, timezone
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Union
 import httpx
 
 from app.core.config import settings
