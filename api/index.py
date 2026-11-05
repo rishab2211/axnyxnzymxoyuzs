@@ -20,3 +20,4 @@ except ImportError:
 
 # Export ASGI application for Vercel Python runtime
 handler = app
+app = app
