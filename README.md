@@ -228,6 +228,8 @@ Per the evaluation rubric requirements, the table below documents the architectu
 
 ```
 axnyxnzymxoyuzs/
+├── api/
+│   └── index.py                         # Vercel Python Serverless ASGI entry point
 ├── backend/                             # Python FastAPI Asynchronous Analytics Engine
 │   ├── alembic/                         # Database schema migrations & version tracking
 │   │   ├── versions/                    # Immutable migration revisions (0001_initial_tables)
@@ -263,7 +265,8 @@ axnyxnzymxoyuzs/
 │   │   │   ├── accuracy.py              # Vectorized NumPy formulations (MAE, RMSE, Bias, WAPE, MAPE)
 │   │   │   ├── analytics_engine.py      # Multi-stage analytical orchestration pipeline
 │   │   │   └── ingestion.py             # Orchestrates external Elexon fetches to DB
-│   │   ├── database.py                  # PostgreSQL engine, session pooling & UTC decorator
+│   │   ├── database.py                  # Dialect-aware engine (Postgres/SQLite), pooling & UTC decorator
+│   │   ├── windscope_seeded.db          # Pre-seeded SQLite database (January 2026 data: 19,856 forecasts)
 │   │   └── main.py                      # FastAPI application entry point with lifespan worker
 │   ├── tests/                           # Pytest automated test harness
 │   │   ├── conftest.py                  # In-memory test SQLite fixtures & synthetic datasets
@@ -276,21 +279,19 @@ axnyxnzymxoyuzs/
 │   │   ├── test_ingestion.py            # End-to-end ingestion pipeline unit tests
 │   │   └── test_integration_edge_cases.py# Leap years, timezone jumps & empty DB tests
 │   ├── Dockerfile                       # Multi-stage Python container build
-│   ├── Procfile                         # Heroku web process definition (uvicorn)
-│   ├── runtime.txt                      # Heroku Python runtime version specification
 │   ├── requirements.txt                 # Pinned production backend dependencies
 │   └── pytest.ini                       # Test suite runner configuration
 ├── frontend/                            # React 19 Single Page Application
 │   ├── public/                          # Static assets, SVG symbols & favicon
 │   ├── src/
 │   │   ├── app/
-│   │   │   └── router.tsx               # Client-side route declarations (React Router v7)
+│   │   │   └── router.tsx               # Code-split lazy-loaded client routes (React Router v7)
 │   │   ├── components/
 │   │   │   ├── charts/                  # Recharts wrappers with responsive boundaries
 │   │   │   ├── kpi/                     # Enterprise KPI display tiles with error delta pills
 │   │   │   ├── layout/                  # Page shell, header with cutoff controls & sidebar nav
 │   │   │   └── ui/                      # Status badges, date pickers, skeleton states
-│   │   ├── features/                    # Feature-driven domain views
+│   │   ├── features/                    # Feature-driven domain views (code-split chunks)
 │   │   │   ├── dashboard/               # Executive overview, dual-granularity chart & KPIs
 │   │   │   ├── forecasts/               # Delivery schedule table & vintage evolution inspector
 │   │   │   ├── accuracy/                # Metric deep dive, scatter parity plot & worst intervals
@@ -303,11 +304,14 @@ axnyxnzymxoyuzs/
 │   │   ├── App.tsx                      # Root component configuring TanStack Query Client
 │   │   └── main.tsx                     # DOM mount point
 │   ├── Dockerfile                       # Nginx multi-stage SPA container build
-│   ├── vercel.json                      # Vercel SPA routing rewrite rules
-│   ├── vite.config.ts                   # Vite bundler config with path aliases & dev proxy
+│   ├── vite.config.ts                   # Vite bundler config with chunk-splitting & dev proxy
 │   ├── package.json                     # Pinned frontend dependencies
 │   └── tsconfig.json                    # Strict TypeScript compilation rules
 ├── docker-compose.yml                   # 3-tier local orchestration (Postgres, API, UI)
+├── vercel.json                          # Full-stack Vercel monorepo deployment & routing
+├── Procfile                             # Process definition for container runtimes
+├── requirements.txt                     # Root-level Python dependencies for cloud builders
+├── runtime.txt                          # Python runtime specification
 └── README.md                            # Comprehensive system documentation & PRD
 
 ---
