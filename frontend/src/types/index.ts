@@ -101,6 +101,8 @@ export interface DataQualitySummary {
   actual_coverage_pct: number;
   forecast_coverage_pct: number;
   matched_coverage_pct: number;
+  cutoff_eligible_forecasts?: number;
+  missing_cutoff_forecast_intervals?: number;
   recent_ingestions: {
     id: number;
     dataset: string;
@@ -116,4 +118,39 @@ export interface DataQualitySummary {
 export interface FilterState {
   deliveryDate: string;
   decisionCutoff: string;
+}
+
+export interface HealthResponse {
+  status: string;
+  project?: string;
+  version?: string;
+  environment?: string;
+  timestamp?: string;
+  database?: {
+    connected?: boolean;
+    status?: string;
+    tables_initialized?: boolean;
+    record_counts?: Record<string, number>;
+    error?: string | null;
+  };
+  tables?: {
+    actual_generation?: number;
+    wind_forecasts?: number;
+    actual_generation_hourly?: number;
+  };
+}
+
+export interface IngestionResponse {
+  status: string;
+  message: string;
+  runs?: Array<{
+    id: number;
+    dataset: string;
+    status: string;
+    records_received: number;
+    records_inserted: number;
+    records_updated: number;
+    records_rejected: number;
+    error_message?: string | null;
+  }>;
 }

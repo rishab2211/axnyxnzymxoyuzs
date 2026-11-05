@@ -14,6 +14,7 @@ import '@xyflow/react/dist/style.css';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/services/api';
 import { PageShell } from '@/components/layout/PageShell';
+
 import { PipelineNode } from './PipelineNode';
 import { NodeInfoPanel } from './NodeInfoPanel';
 import { INITIAL_NODES, INITIAL_EDGES, PIPELINE_METADATA } from './pipelineData';
@@ -26,16 +27,22 @@ export const PipelinePage: React.FC = () => {
 
   const nodeTypes = useMemo(() => ({ pipelineNode: PipelineNode }), []);
 
-  // Fetch cached health and data-quality data without redundant polling
+  // Fetch cached health, data bounds, and data-quality data without redundant polling
   const { data: health } = useQuery({
     queryKey: ['health'],
     queryFn: () => api.getHealth(),
     staleTime: 60_000,
   });
 
+  const { data: bounds } = useQuery({
+    queryKey: ['data-bounds'],
+    queryFn: () => api.getDataBounds(),
+    staleTime: 60_000,
+  });
+
   const { data: quality } = useQuery({
-    queryKey: ['data-quality', '2026-01-01', '2026-01-31'],
-    queryFn: () => api.getDataQuality('2026-01-01', '2026-01-31'),
+    queryKey: ['data-quality', bounds?.min_date || '2026-01-01', bounds?.max_date || '2026-01-31'],
+    queryFn: () => api.getDataQuality(bounds?.min_date || '2026-01-01', bounds?.max_date || '2026-01-31'),
     staleTime: 60_000,
   });
 
@@ -46,8 +53,8 @@ export const PipelinePage: React.FC = () => {
   const activeMetadata = selectedNodeId ? PIPELINE_METADATA[selectedNodeId] : null;
 
   const liveStats = {
-    actualCount: quality?.actual_30m_records ?? health?.tables?.actual_generation,
-    forecastCount: quality?.forecasts_available ?? health?.tables?.wind_forecasts,
+    actualCount: bounds?.total_actual_records ?? quality?.actual_30m_records ?? health?.tables?.actual_generation,
+    forecastCount: bounds?.total_forecast_records ?? quality?.forecasts_available ?? health?.tables?.wind_forecasts,
     matchedCount: quality?.matched_intervals,
     hourlyActualCount: quality?.hourly_actuals_available ?? health?.tables?.actual_generation_hourly,
     dbStatus: health?.database?.status === 'connected' ? 'Connected (Healthy)' : 'Operational',

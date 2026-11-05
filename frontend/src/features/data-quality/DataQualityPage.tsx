@@ -7,7 +7,9 @@ import { ChartContainer } from '@/components/charts/ChartContainer';
 import { StatusBadge } from '@/components/ui/StatusBadge';
 import { SkeletonCard } from '@/components/ui/SkeletonCard';
 import { ErrorState } from '@/components/ui/ErrorState';
-import { formatPercent, formatDateTimeUTC } from '@/lib/formatters';
+import { formatPercent, formatDateTimeUTC, formatDateUTC } from '@/lib/formatters';
+import { DateInput } from '@/components/ui/DateInput';
+import { useFilters } from '@/hooks/useFilters';
 import {
   RefreshCw,
   AlertTriangle,
@@ -17,6 +19,7 @@ import {
 
 export const DataQualityPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const { decisionCutoff } = useFilters();
   const [dateFrom, setDateFrom] = useState('2026-01-01');
   const [dateTo, setDateTo] = useState('2026-01-31');
   const [ingestStatusMessage, setIngestStatusMessage] = useState<{
@@ -24,14 +27,23 @@ export const DataQualityPage: React.FC = () => {
     text: string;
   } | null>(null);
 
+  const isDateRangeValid = dateFrom <= dateTo;
+
+  const { data: bounds } = useQuery({
+    queryKey: ['data-bounds'],
+    queryFn: () => api.getDataBounds(),
+    staleTime: 60_000,
+  });
+
   const {
     data: quality,
     isLoading,
     error,
     refetch,
   } = useQuery({
-    queryKey: ['data-quality', dateFrom, dateTo],
-    queryFn: () => api.getDataQuality(dateFrom, dateTo),
+    queryKey: ['data-quality', dateFrom, dateTo, decisionCutoff],
+    queryFn: () => api.getDataQuality(dateFrom, dateTo, decisionCutoff),
+    enabled: isDateRangeValid,
   });
 
   const ingestMutation = useMutation({
@@ -46,7 +58,7 @@ export const DataQualityPage: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['accuracy-summary'] });
     },
-    onError: (err: any) => {
+    onError: (err: Error) => {
       setIngestStatusMessage({
         type: 'error',
         text: `Ingestion failed: ${err.message || 'Unknown network error.'}`,
@@ -62,27 +74,49 @@ export const DataQualityPage: React.FC = () => {
   return (
     <PageShell
       title="Data Quality & Lineage Diagnostics"
-      subtitle="Coverage completeness, granularity alignment verification, and Elexon BMRS ingestion audit logs"
+      subtitle={`Coverage completeness, granularity alignment verification, and Elexon BMRS ingestion audit logs (Cutoff: ${decisionCutoff} UTC)`}
       actions={
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs shadow-xs">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Quick Range Presets */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg text-xs font-medium text-slate-600">
+            <button
+              type="button"
+              onClick={() => {
+                if (bounds?.min_date && bounds?.max_date) {
+                  setDateFrom(bounds.min_date);
+                  setDateTo(bounds.max_date);
+                }
+              }}
+              className="px-2 py-0.5 rounded hover:text-slate-900 transition-colors"
+            >
+              Full Scope
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const endStr = bounds?.max_date || '2026-01-31';
+                const end = new Date(endStr + 'T00:00:00Z');
+                const start = new Date(end);
+                start.setUTCDate(start.getUTCDate() - 6);
+                setDateFrom(start.toISOString().slice(0, 10));
+                setDateTo(endStr);
+              }}
+              className="px-2 py-0.5 rounded hover:text-slate-900 transition-colors"
+            >
+              Last 7D
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-2.5 py-1 text-xs shadow-xs">
             <span className="text-slate-500 font-medium">Evaluation Period:</span>
-            <input
-              type="date"
-              min="2026-01-01"
-              max="2026-01-31"
+            <DateInput
               value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="text-xs font-medium text-slate-800 bg-transparent focus:outline-none"
+              onChange={setDateFrom}
             />
-            <span className="text-slate-400">to</span>
-            <input
-              type="date"
-              min="2026-01-01"
-              max="2026-01-31"
+            <span className="text-slate-400 font-sans">to</span>
+            <DateInput
               value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="text-xs font-medium text-slate-800 bg-transparent focus:outline-none"
+              onChange={setDateTo}
             />
           </div>
           <button
@@ -97,6 +131,12 @@ export const DataQualityPage: React.FC = () => {
       }
     >
       <div className="space-y-6">
+        {!isDateRangeValid && (
+          <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-xl text-xs font-medium flex items-center gap-2">
+            <span>Invalid Date Range: Start date ({dateFrom}) cannot be after end date ({dateTo}). Please select a valid period.</span>
+          </div>
+        )}
+
         {/* Notification Banner */}
         {ingestStatusMessage && (
           <div
@@ -162,9 +202,9 @@ export const DataQualityPage: React.FC = () => {
               <KPICard
                 label="Forecast Hourly Intervals"
                 value={`${quality.forecasts_available} / ${quality.expected_hourly_intervals}`}
-                description="BMRS WINDFOR published hourly records"
+                description="BMRS WINDFOR raw published records"
                 formula="Available Forecasts / (Days * 24 Hours)"
-                interpretation={`${formatPercent(quality.forecast_coverage_pct)} coverage`}
+                interpretation={`${formatPercent(quality.forecast_coverage_pct)} raw coverage`}
                 status={quality.forecast_coverage_pct >= 95 ? 'good' : 'warning'}
                 sampleCount={quality.forecasts_available}
               />
@@ -172,7 +212,11 @@ export const DataQualityPage: React.FC = () => {
               <KPICard
                 label="Matched Evaluation Pairs"
                 value={`${quality.matched_intervals} / ${quality.expected_hourly_intervals}`}
-                description="Joined forecast + aggregated actual pairs"
+                description={
+                  quality.cutoff_eligible_forecasts !== undefined
+                    ? `${quality.cutoff_eligible_forecasts} eligible before cutoff`
+                    : "Joined forecast + aggregated actual pairs"
+                }
                 formula="Matched (Forecast & Actual) / Expected Hourly"
                 interpretation={`${formatPercent(quality.matched_coverage_pct)} complete`}
                 status={quality.matched_coverage_pct >= 95 ? 'good' : 'warning'}
@@ -182,7 +226,11 @@ export const DataQualityPage: React.FC = () => {
               <KPICard
                 label="Missing Observations"
                 value={quality.missing_forecast_intervals + quality.missing_actual_intervals}
-                description={`${quality.missing_forecast_intervals} missing forecast, ${quality.missing_actual_intervals} missing actual`}
+                description={
+                  quality.missing_cutoff_forecast_intervals && quality.missing_cutoff_forecast_intervals > quality.missing_forecast_intervals
+                    ? `${quality.missing_actual_intervals} missing actuals, ${quality.missing_cutoff_forecast_intervals - quality.missing_forecast_intervals} past cutoff`
+                    : `${quality.missing_forecast_intervals} missing forecast, ${quality.missing_actual_intervals} missing actual`
+                }
                 formula="Expected Hourly - Available Pairs"
                 interpretation="Surfaced as null in calculations"
                 status={quality.missing_forecast_intervals + quality.missing_actual_intervals === 0 ? 'good' : 'danger'}
@@ -277,8 +325,8 @@ export const DataQualityPage: React.FC = () => {
                     Target Ingestion Date Window
                   </span>
                   <span>
-                    Range: <span className="font-mono font-medium text-slate-800">{dateFrom}</span> to{' '}
-                    <span className="font-mono font-medium text-slate-800">{dateTo}</span> (7-day chunking with exponential backoff)
+                    Range: <span className="font-mono font-medium text-slate-800">{formatDateUTC(dateFrom)}</span> to{' '}
+                    <span className="font-mono font-medium text-slate-800">{formatDateUTC(dateTo)}</span> (7-day chunking with exponential backoff)
                   </span>
                 </div>
                 <div className="text-right text-[11px] text-slate-500">
@@ -315,10 +363,13 @@ export const DataQualityPage: React.FC = () => {
                       </tr>
                     ) : (
                       quality.recent_ingestions.map((run) => {
+                        const normStatus = (run.status || '').toLowerCase();
                         const statusVariant =
-                          run.status === 'SUCCESS'
+                          normStatus === 'success'
                             ? 'success'
-                            : run.status === 'PARTIAL'
+                            : normStatus === 'running'
+                            ? 'info'
+                            : normStatus === 'partial'
                             ? 'warning'
                             : 'danger';
 

@@ -6,6 +6,8 @@ import type {
   DailyAccuracyTrend,
   WorstIntervalRecord,
   DataQualitySummary,
+  HealthResponse,
+  IngestionResponse,
 } from '@/types';
 
 const API_BASE = '/api';
@@ -102,20 +104,32 @@ export const api = {
     return fetchJson<WorstIntervalRecord[]>(`${API_BASE}/accuracy/worst?${params.toString()}`);
   },
 
-  getDataQuality: (dateFrom: string, dateTo: string) => {
+  getDataQuality: (dateFrom: string, dateTo: string, decisionCutoff?: string) => {
     const params = new URLSearchParams({
       date_from: dateFrom,
       date_to: dateTo,
     });
+    if (decisionCutoff) {
+      params.append('decision_cutoff', decisionCutoff);
+    }
     return fetchJson<DataQualitySummary>(`${API_BASE}/data-quality?${params.toString()}`);
   },
 
+  getDataBounds: () => {
+    return fetchJson<{
+      min_date: string | null;
+      max_date: string | null;
+      total_actual_records: number;
+      total_forecast_records: number;
+    }>(`${API_BASE}/data-quality/bounds`);
+  },
+
   getHealth: () => {
-    return fetchJson<any>(`${API_BASE}/health`);
+    return fetchJson<HealthResponse>(`${API_BASE}/health`);
   },
 
   triggerIngest: (dataset: string, startDate?: string, endDate?: string) => {
-    return fetchJson<any>(`${API_BASE}/ingest`, {
+    return fetchJson<IngestionResponse>(`${API_BASE}/ingest`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
