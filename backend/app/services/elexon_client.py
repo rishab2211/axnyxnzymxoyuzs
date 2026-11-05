@@ -38,46 +38,45 @@ class ElexonClient:
         params: Dict[str, Any],
     ) -> List[Dict[str, Any]]:
         url = f"{self.base_url}{endpoint}"
-        attempt = 0
+        total_attempts = self.max_retries + 1
 
-        while attempt <= self.max_retries:
-            attempt += 1
+        for attempt in range(1, total_attempts + 1):
             start_time = asyncio.get_event_loop().time()
             try:
-                logger.info(f"Elexon API request: GET {endpoint} (params={params}, attempt={attempt})")
+                logger.info(f"Elexon API request: GET {endpoint} (params={params}, attempt={attempt}/{total_attempts})")
                 response = await client.get(url, params=params, timeout=self.timeout)
                 duration = asyncio.get_event_loop().time() - start_time
 
                 # 429 Rate limit handling
                 if response.status_code == 429:
-                    retry_after = float(response.headers.get("Retry-After", 2.0))
-                    jitter = random.uniform(0.1, 0.5)
-                    wait_time = retry_after + jitter
-                    logger.warning(
-                        f"Elexon rate limit (429) hit. Backing off for {wait_time:.2f}s (attempt {attempt}/{self.max_retries})"
-                    )
-                    if attempt > self.max_retries:
+                    if attempt >= total_attempts:
                         raise ElexonAPIError(
                             "Elexon API rate limit exceeded after maximum retries.",
                             status_code=429,
                             response_text=response.text,
                         )
+                    retry_after = float(response.headers.get("Retry-After", 2.0))
+                    jitter = random.uniform(0.1, 0.5)
+                    wait_time = retry_after + jitter
+                    logger.warning(
+                        f"Elexon rate limit (429) hit. Backing off for {wait_time:.2f}s (attempt {attempt}/{total_attempts})"
+                    )
                     await asyncio.sleep(wait_time)
                     continue
 
                 # 5xx Server errors
                 if response.status_code >= 500:
-                    delay = (self.backoff_factor ** attempt) + random.uniform(0.1, 0.5)
-                    logger.warning(
-                        f"Elexon server error ({response.status_code}) on {endpoint}. "
-                        f"Retrying in {delay:.2f}s (attempt {attempt}/{self.max_retries})"
-                    )
-                    if attempt > self.max_retries:
+                    if attempt >= total_attempts:
                         raise ElexonAPIError(
                             f"Elexon API server error {response.status_code} after max retries.",
                             status_code=response.status_code,
                             response_text=response.text,
                         )
+                    delay = (self.backoff_factor ** attempt) + random.uniform(0.1, 0.5)
+                    logger.warning(
+                        f"Elexon server error ({response.status_code}) on {endpoint}. "
+                        f"Retrying in {delay:.2f}s (attempt {attempt}/{total_attempts})"
+                    )
                     await asyncio.sleep(delay)
                     continue
 
@@ -105,18 +104,18 @@ class ElexonClient:
 
             except (httpx.TimeoutException, httpx.NetworkError) as net_err:
                 duration = asyncio.get_event_loop().time() - start_time
-                delay = (self.backoff_factor ** attempt) + random.uniform(0.2, 0.8)
-                logger.warning(
-                    f"Elexon network error ({type(net_err).__name__}) after {duration:.2f}s on {endpoint}. "
-                    f"Retrying in {delay:.2f}s (attempt {attempt}/{self.max_retries})"
-                )
-                if attempt > self.max_retries:
+                if attempt >= total_attempts:
                     raise ElexonAPIError(
                         f"Elexon API network error after {self.max_retries} retries: {net_err}"
                     ) from net_err
+                delay = (self.backoff_factor ** attempt) + random.uniform(0.2, 0.8)
+                logger.warning(
+                    f"Elexon network error ({type(net_err).__name__}) after {duration:.2f}s on {endpoint}. "
+                    f"Retrying in {delay:.2f}s (attempt {attempt}/{total_attempts})"
+                )
                 await asyncio.sleep(delay)
 
-        raise ElexonAPIError(f"Failed to fetch {endpoint} after {self.max_retries} attempts.")
+        raise ElexonAPIError(f"Failed to fetch {endpoint} after {self.max_retries} retries.")
 
     async def fetch_fuelhh(
         self,

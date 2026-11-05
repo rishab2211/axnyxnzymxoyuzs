@@ -222,6 +222,11 @@ class DataProcessor:
                     f"Hourly actual at {hour_start} has only 1 settlement period ({gens[0]} MW)."
                 )
                 avg_mw = round(gens[0], 2)
+            elif sp_count > 0:
+                logger.warning(
+                    f"Hourly actual at {hour_start} has unexpected {sp_count} settlement periods. Using average."
+                )
+                avg_mw = round(sum(gens) / float(sp_count), 2)
             else:
                 avg_mw = None
 

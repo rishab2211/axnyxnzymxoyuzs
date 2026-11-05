@@ -184,3 +184,42 @@ def test_hourly_actual_aggregation():
     assert hourly[1].hour_start_time == datetime(2026, 1, 1, 1, 0, tzinfo=timezone.utc)
     assert hourly[1].generation_mw == 14000.0
     assert hourly[1].sp_count == 1
+
+
+def test_hourly_aggregation_handles_extra_settlement_periods():
+    processor = DataProcessor()
+    # Simulate an hour bucket with 3 SP records
+    from app.schemas.data_processing import ValidatedFuelHHRecord
+
+    records = [
+        ValidatedFuelHHRecord(
+            start_time=datetime(2026, 1, 1, 2, 0, tzinfo=timezone.utc),
+            publish_time=datetime(2026, 1, 1, 2, 30, tzinfo=timezone.utc),
+            settlement_date=date(2026, 1, 1),
+            settlement_period=5,
+            fuel_type="WIND",
+            generation_mw=9000.0,
+        ),
+        ValidatedFuelHHRecord(
+            start_time=datetime(2026, 1, 1, 2, 20, tzinfo=timezone.utc),
+            publish_time=datetime(2026, 1, 1, 2, 40, tzinfo=timezone.utc),
+            settlement_date=date(2026, 1, 1),
+            settlement_period=6,
+            fuel_type="WIND",
+            generation_mw=12000.0,
+        ),
+        ValidatedFuelHHRecord(
+            start_time=datetime(2026, 1, 1, 2, 40, tzinfo=timezone.utc),
+            publish_time=datetime(2026, 1, 1, 3, 0, tzinfo=timezone.utc),
+            settlement_date=date(2026, 1, 1),
+            settlement_period=7,
+            fuel_type="WIND",
+            generation_mw=15000.0,
+        ),
+    ]
+
+    hourly = processor.aggregate_hourly_actuals(records)
+    assert len(hourly) == 1
+    assert hourly[0].sp_count == 3
+    # mean of 9000, 12000, 15000 = 12000.0 (must not be None!)
+    assert hourly[0].generation_mw == 12000.0

@@ -78,3 +78,20 @@ def test_worst_intervals_ranking():
     assert worst[0].absolute_error_mw == 90.0
     assert worst[1].error_mw == -80.0
     assert worst[1].absolute_error_mw == 80.0
+
+
+def test_compute_histogram_zero_boundary():
+    """Histogram must align zero as a bin boundary when errors span negative and positive."""
+    errors = [-500.0, -200.0, -50.0, 10.0, 100.0, 300.0]
+    hist = AccuracyEngine.compute_histogram(errors, bins=6)
+
+    assert hist["total_samples"] == 6
+    assert hist["min_error"] == -500.0
+    assert hist["max_error"] == 300.0
+
+    # Verify that 0.0 is an exact boundary separating negative and positive bins
+    boundary_found = False
+    for b in hist["bins"]:
+        if b["max"] == 0.0 or b["min"] == 0.0:
+            boundary_found = True
+    assert boundary_found is True

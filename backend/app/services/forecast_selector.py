@@ -1,4 +1,4 @@
-from datetime import datetime, date, time, timezone
+from datetime import datetime, date, time, timezone, timedelta
 from typing import Optional, Dict, List
 from sqlalchemy.orm import Session
 from sqlalchemy import select, and_, desc
@@ -72,9 +72,9 @@ class ForecastSelector:
         """
         cutoff_dt = cls.resolve_cutoff_datetime(delivery_date, cutoff_str)
 
-        # Expected 24 hourly intervals for the date in UTC
+        # Expected 24 hourly intervals for the date in UTC (00:00 to 23:00 inclusive)
         start_dt = datetime.combine(delivery_date, time(0, 0), tzinfo=timezone.utc)
-        end_dt = datetime.combine(delivery_date, time(23, 59, 59), tzinfo=timezone.utc)
+        end_dt = datetime.combine(delivery_date, time(23, 0), tzinfo=timezone.utc)
 
         # Fetch all forecasts targeting this delivery date that were published <= cutoff_dt
         stmt = (
@@ -101,7 +101,6 @@ class ForecastSelector:
         current_dt = start_dt
         while current_dt <= end_dt:
             result[current_dt] = selected_map.get(current_dt, None)
-            from datetime import timedelta
             current_dt += timedelta(hours=1)
 
         return result
@@ -117,7 +116,7 @@ class ForecastSelector:
         Used to analyze forecast evolution over time as new publications arrive.
         """
         start_dt = datetime.combine(delivery_date, time(0, 0), tzinfo=timezone.utc)
-        end_dt = datetime.combine(delivery_date, time(23, 59, 59), tzinfo=timezone.utc)
+        end_dt = datetime.combine(delivery_date, time(23, 0), tzinfo=timezone.utc)
 
         stmt = (
             select(WindForecast)

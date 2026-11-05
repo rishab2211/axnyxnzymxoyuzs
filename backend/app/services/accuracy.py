@@ -123,11 +123,22 @@ class AccuracyEngine:
         errors: List[float],
         bins: int = 10,
     ) -> Dict[str, Any]:
-        """Generate error distribution histogram bins and frequencies."""
+        """Generate error distribution histogram bins and frequencies with zero-aligned boundary."""
         if not errors:
             return {"bins": [], "counts": []}
 
-        counts, bin_edges = np.histogram(errors, bins=bins)
+        min_err = float(min(errors))
+        max_err = float(max(errors))
+
+        if min_err < 0 < max_err:
+            half_bins = max(1, bins // 2)
+            neg_edges = np.linspace(min_err, 0.0, half_bins + 1)
+            pos_edges = np.linspace(0.0, max_err, (bins - half_bins) + 1)[1:]
+            bin_edges = np.concatenate([neg_edges, pos_edges])
+            counts, _ = np.histogram(errors, bins=bin_edges)
+        else:
+            counts, bin_edges = np.histogram(errors, bins=bins)
+
         formatted_bins = []
         for i in range(len(counts)):
             formatted_bins.append({
@@ -139,7 +150,7 @@ class AccuracyEngine:
 
         return {
             "total_samples": len(errors),
-            "min_error": round(float(min(errors)), 1),
-            "max_error": round(float(max(errors)), 1),
+            "min_error": round(min_err, 1),
+            "max_error": round(max_err, 1),
             "bins": formatted_bins,
         }

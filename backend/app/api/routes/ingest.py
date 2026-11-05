@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -47,16 +47,23 @@ async def trigger_ingestion(
             if request.start_date:
                 p_from = datetime.combine(request.start_date, datetime.min.time(), tzinfo=timezone.utc)
             if request.end_date:
-                p_to = datetime.combine(request.end_date, datetime.max.time(), tzinfo=timezone.utc)
+                p_to = datetime.combine(request.end_date + timedelta(days=1), datetime.min.time(), tzinfo=timezone.utc)
 
             run = await service.ingest_windfor(
                 db=db,
                 publish_from=p_from,
                 publish_to=p_to,
+                date_from=request.start_date,
+                date_to=request.end_date,
             )
             runs.append(run)
         elif dataset == "ALL":
-            all_runs = await service.ingest_all(db=db, force_reload=request.force_reload)
+            all_runs = await service.ingest_all(
+                db=db,
+                date_from=request.start_date,
+                date_to=request.end_date,
+                force_reload=request.force_reload,
+            )
             runs.extend(all_runs)
 
         run_summaries = [

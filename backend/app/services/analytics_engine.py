@@ -1,7 +1,7 @@
 from datetime import datetime, date, time, timezone, timedelta
 from typing import Optional, List, Dict, Any, Tuple
 from sqlalchemy.orm import Session
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, desc
 
 from app.models.actual_generation import ActualGeneration
 from app.models.actual_hourly import ActualGenerationHourly
@@ -132,6 +132,97 @@ class AnalyticsEngine:
         return dash.series
 
     @classmethod
+    def _build_range_match_records(
+        cls,
+        db: Session,
+        date_from: date,
+        date_to: date,
+        cutoff_str: Optional[str] = None,
+    ) -> List[IntervalMatchRecord]:
+        """
+        Batch query all forecasts and hourly actuals for [date_from, date_to],
+        evaluating cutoff eligibility per day to avoid O(N) query fan-out.
+        """
+        dt_start = datetime.combine(date_from, time(0, 0), tzinfo=timezone.utc)
+        dt_end = datetime.combine(date_to + timedelta(days=1), time(0, 0), tzinfo=timezone.utc)
+
+        # 1. Single query for all hourly actuals in the range
+        hourly_actuals = GenerationRepository.get_hourly_actuals_by_range(db, dt_start, dt_end)
+        actual_map: Dict[datetime, Optional[float]] = {
+            ha.hour_start_time: float(ha.generation_mw) if ha.generation_mw is not None else None
+            for ha in hourly_actuals
+        }
+
+        # 2. Single query for all forecasts targeting intervals in this delivery window
+        stmt = (
+            select(WindForecast)
+            .where(
+                and_(
+                    WindForecast.start_time >= dt_start,
+                    WindForecast.start_time < dt_end,
+                )
+            )
+            .order_by(WindForecast.start_time.asc(), desc(WindForecast.publish_time))
+        )
+        forecast_rows = db.execute(stmt).scalars().all()
+
+        # Group forecasts by target start_time
+        fc_by_start: Dict[datetime, List[WindForecast]] = {}
+        for fc in forecast_rows:
+            fc_by_start.setdefault(fc.start_time, []).append(fc)
+
+        # Cache cutoff_dt per day
+        cutoff_cache: Dict[date, datetime] = {}
+
+        series: List[IntervalMatchRecord] = []
+        curr_dt = dt_start
+        while curr_dt < dt_end:
+            delivery_d = curr_dt.date()
+            if delivery_d not in cutoff_cache:
+                cutoff_cache[delivery_d] = ForecastSelector.resolve_cutoff_datetime(delivery_d, cutoff_str)
+            cutoff_dt = cutoff_cache[delivery_d]
+
+            candidates = fc_by_start.get(curr_dt, [])
+            selected_fc: Optional[WindForecast] = None
+            for c in candidates:
+                if c.publish_time <= cutoff_dt:
+                    selected_fc = c
+                    break
+
+            fc_mw = float(selected_fc.generation_mw) if selected_fc else None
+            pub_time = selected_fc.publish_time if selected_fc else None
+            lead_h = round((curr_dt - pub_time).total_seconds() / 3600.0, 1) if pub_time else None
+            act = actual_map.get(curr_dt)
+
+            if fc_mw is not None and act is not None:
+                err = AccuracyEngine.calculate_error(fc_mw, act)
+                status_str = "matched"
+            elif fc_mw is not None and act is None:
+                err = None
+                status_str = "missing_actual"
+            elif fc_mw is None and act is not None:
+                err = None
+                status_str = "missing_forecast"
+            else:
+                err = None
+                status_str = "missing_both"
+
+            series.append(
+                IntervalMatchRecord(
+                    start_time=curr_dt,
+                    forecast_mw=fc_mw,
+                    actual_hourly_mw=act,
+                    error_mw=err,
+                    forecast_publish_time=pub_time,
+                    forecast_lead_hours=lead_h,
+                    status=status_str,
+                )
+            )
+            curr_dt += timedelta(hours=1)
+
+        return series
+
+    @classmethod
     def get_accuracy_summary(
         cls,
         db: Session,
@@ -139,19 +230,14 @@ class AnalyticsEngine:
         date_to: date,
         cutoff_str: Optional[str] = None,
     ) -> AccuracyMetrics:
-        """Calculate aggregate accuracy statistics across a date window."""
-        matched_pairs: List[Tuple[float, float]] = []
-        expected_total = 0
-
-        curr_date = date_from
-        while curr_date <= date_to:
-            expected_total += 24
-            dash = cls.get_dashboard(db, curr_date, cutoff_str)
-            for s in dash.series:
-                if s.forecast_mw is not None and s.actual_hourly_mw is not None:
-                    matched_pairs.append((s.forecast_mw, s.actual_hourly_mw))
-            curr_date += timedelta(days=1)
-
+        """Calculate aggregate accuracy statistics across a date window via fast batch range query."""
+        series = cls._build_range_match_records(db, date_from, date_to, cutoff_str)
+        matched_pairs: List[Tuple[float, float]] = [
+            (s.forecast_mw, s.actual_hourly_mw)
+            for s in series
+            if s.forecast_mw is not None and s.actual_hourly_mw is not None
+        ]
+        expected_total = len(series)
         return AccuracyEngine.compute_metrics(matched_pairs, expected_observations=expected_total)
 
     @classmethod
@@ -162,12 +248,22 @@ class AnalyticsEngine:
         date_to: date,
         cutoff_str: Optional[str] = None,
     ) -> List[DailyAccuracyTrend]:
-        """Calculate day-by-day accuracy trends over a date range."""
+        """Calculate day-by-day accuracy trends over a date range via fast batch range query."""
+        series = cls._build_range_match_records(db, date_from, date_to, cutoff_str)
+        by_date: Dict[date, List[IntervalMatchRecord]] = {}
+        for s in series:
+            by_date.setdefault(s.start_time.date(), []).append(s)
+
         trends: List[DailyAccuracyTrend] = []
         curr_date = date_from
         while curr_date <= date_to:
-            dash = cls.get_dashboard(db, curr_date, cutoff_str)
-            m = dash.metrics
+            day_records = by_date.get(curr_date, [])
+            matched_pairs = [
+                (r.forecast_mw, r.actual_hourly_mw)
+                for r in day_records
+                if r.forecast_mw is not None and r.actual_hourly_mw is not None
+            ]
+            m = AccuracyEngine.compute_metrics(matched_pairs, expected_observations=len(day_records) or 24)
             trends.append(
                 DailyAccuracyTrend(
                     delivery_date=curr_date,
@@ -176,7 +272,7 @@ class AnalyticsEngine:
                     bias=m.bias,
                     wape=m.wape,
                     matched_count=m.matched_observations,
-                    expected_count=24,
+                    expected_count=len(day_records) or 24,
                     coverage_pct=m.coverage_pct,
                 )
             )
@@ -249,23 +345,20 @@ class AnalyticsEngine:
         cutoff_str: Optional[str] = None,
         bins: int = 10,
     ) -> Dict[str, Any]:
-        """Compute error distribution histogram and scatter coordinates across date range."""
+        """Compute error distribution histogram and scatter coordinates across date range via fast batch query."""
+        series = cls._build_range_match_records(db, date_from, date_to, cutoff_str)
         errors: List[float] = []
         scatter_points: List[Dict[str, Any]] = []
 
-        curr_date = date_from
-        while curr_date <= date_to:
-            dash = cls.get_dashboard(db, curr_date, cutoff_str)
-            for s in dash.series:
-                if s.forecast_mw is not None and s.actual_hourly_mw is not None and s.error_mw is not None:
-                    errors.append(s.error_mw)
-                    scatter_points.append({
-                        "actual": s.actual_hourly_mw,
-                        "forecast": s.forecast_mw,
-                        "error": s.error_mw,
-                        "time": s.start_time,
-                    })
-            curr_date += timedelta(days=1)
+        for s in series:
+            if s.forecast_mw is not None and s.actual_hourly_mw is not None and s.error_mw is not None:
+                errors.append(s.error_mw)
+                scatter_points.append({
+                    "actual": s.actual_hourly_mw,
+                    "forecast": s.forecast_mw,
+                    "error": s.error_mw,
+                    "time": s.start_time,
+                })
 
         hist = AccuracyEngine.compute_histogram(errors, bins=bins)
         return {
@@ -283,15 +376,9 @@ class AnalyticsEngine:
         cutoff_str: Optional[str] = None,
         limit: int = 10,
     ) -> List[WorstIntervalRecord]:
-        """Find the top N worst absolute forecast errors across the date range."""
-        all_records: List[IntervalMatchRecord] = []
-        curr_date = date_from
-        while curr_date <= date_to:
-            dash = cls.get_dashboard(db, curr_date, cutoff_str)
-            all_records.extend(dash.series)
-            curr_date += timedelta(days=1)
-
-        return AccuracyEngine.get_worst_intervals(all_records, limit=limit)
+        """Find the top N worst absolute forecast errors across the date range via fast batch query."""
+        series = cls._build_range_match_records(db, date_from, date_to, cutoff_str)
+        return AccuracyEngine.get_worst_intervals(series, limit=limit)
 
     @classmethod
     def get_data_quality(
@@ -299,6 +386,7 @@ class AnalyticsEngine:
         db: Session,
         date_from: date,
         date_to: date,
+        cutoff_str: Optional[str] = None,
     ) -> DataQualitySummary:
         """Report on data coverage, missing intervals, and ingestion audit status."""
         days = (date_to - date_from).days + 1
@@ -329,7 +417,7 @@ class AnalyticsEngine:
             )
         ).scalar() or 0
 
-        # Distinct forecast intervals targeting this range
+        # Distinct forecast intervals targeting this range in database (unfiltered by cutoff)
         forecast_intervals_count = db.execute(
             select(func.count(func.distinct(WindForecast.start_time))).where(
                 and_(
@@ -339,11 +427,13 @@ class AnalyticsEngine:
             )
         ).scalar() or 0
 
-        # Matched count using default cutoff
-        summary = cls.get_accuracy_summary(db, date_from, date_to)
-        matched_count = summary.matched_observations
+        # Fast range calculation for cutoff-eligible forecasts and matches
+        series = cls._build_range_match_records(db, date_from, date_to, cutoff_str)
+        cutoff_eligible_count = sum(1 for s in series if s.forecast_mw is not None)
+        matched_count = sum(1 for s in series if s.status == "matched")
 
         missing_forecasts = max(0, expected_hourly - forecast_intervals_count)
+        missing_cutoff_forecasts = max(0, expected_hourly - cutoff_eligible_count)
         missing_actuals = max(0, expected_hourly - hourly_actual_count)
 
         act_cov = round((actual_30m_count / expected_30m * 100.0) if expected_30m > 0 else 0.0, 1)
@@ -379,5 +469,7 @@ class AnalyticsEngine:
             actual_coverage_pct=act_cov,
             forecast_coverage_pct=fc_cov,
             matched_coverage_pct=matched_cov,
+            cutoff_eligible_forecasts=cutoff_eligible_count,
+            missing_cutoff_forecast_intervals=missing_cutoff_forecasts,
             recent_ingestions=formatted_runs,
         )

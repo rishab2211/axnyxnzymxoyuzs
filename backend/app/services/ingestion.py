@@ -1,4 +1,4 @@
-from datetime import datetime, date, timezone
+from datetime import datetime, date, timezone, timedelta
 from typing import Optional, Dict, Any, List
 from sqlalchemy.orm import Session
 
@@ -87,11 +87,29 @@ class IngestionService:
         db: Session,
         publish_from: Optional[datetime] = None,
         publish_to: Optional[datetime] = None,
+        date_from: Optional[date] = None,
+        date_to: Optional[date] = None,
     ) -> IngestionRun:
         """Fetch, validate, and store WINDFOR forecast publication records."""
-        # Include publications from Dec 30, 2025 to cover early Jan 1 delivery
-        p_from = publish_from or datetime(2025, 12, 30, 0, 0, tzinfo=timezone.utc)
-        p_to = publish_to or datetime(2026, 2, 1, 0, 0, tzinfo=timezone.utc)
+        if publish_from and publish_to:
+            p_from = publish_from
+            p_to = publish_to
+        else:
+            if not publish_from and not date_from:
+                logger.warning(
+                    f"No start date provided for WINDFOR ingestion. "
+                    f"Defaulting to configured evaluation start: {settings.EVALUATION_START_DATE}"
+                )
+            if not publish_to and not date_to:
+                logger.warning(
+                    f"No end date provided for WINDFOR ingestion. "
+                    f"Defaulting to configured evaluation end: {settings.EVALUATION_END_DATE}"
+                )
+            d_from = date_from or (publish_from.date() if publish_from else date.fromisoformat(settings.EVALUATION_START_DATE))
+            d_to = date_to or (publish_to.date() if publish_to else date.fromisoformat(settings.EVALUATION_END_DATE))
+            # Include publications from 2 days prior to cover day-ahead gate closures for early delivery
+            p_from = publish_from or datetime.combine(d_from - timedelta(days=2), datetime.min.time(), tzinfo=timezone.utc)
+            p_to = publish_to or datetime.combine(d_to + timedelta(days=1), datetime.max.time(), tzinfo=timezone.utc)
 
         run = IngestionRepository.create_run(
             db=db,
@@ -138,14 +156,16 @@ class IngestionService:
     async def ingest_all(
         self,
         db: Session,
+        date_from: Optional[date] = None,
+        date_to: Optional[date] = None,
         force_reload: bool = False,
     ) -> List[IngestionRun]:
         """Ingest both FUELHH and WINDFOR datasets sequentially."""
         runs: List[IngestionRun] = []
-        fuel_run = await self.ingest_fuelhh(db)
+        fuel_run = await self.ingest_fuelhh(db, date_from=date_from, date_to=date_to)
         runs.append(fuel_run)
 
-        wind_run = await self.ingest_windfor(db)
+        wind_run = await self.ingest_windfor(db, date_from=date_from, date_to=date_to)
         runs.append(wind_run)
 
         return runs

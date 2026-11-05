@@ -143,13 +143,26 @@ def test_accuracy_distribution_endpoint(client: TestClient, db_session: Session)
 
 def test_data_quality_endpoint(client: TestClient, db_session: Session):
     seed_test_data(db_session)
-    response = client.get("/api/data-quality?date_from=2026-01-01&date_to=2026-01-01")
+    response = client.get("/api/data-quality?date_from=2026-01-01&date_to=2026-01-01&decision_cutoff=11:00")
     assert response.status_code == 200
     data = response.json()
     assert data["expected_30m_intervals"] == 48
     assert data["actual_30m_records"] == 2
     assert data["expected_hourly_intervals"] == 24
     assert data["matched_intervals"] == 1
+    assert "cutoff_eligible_forecasts" in data
+    assert "missing_cutoff_forecast_intervals" in data
+
+
+def test_data_bounds_endpoint(client: TestClient, db_session: Session):
+    seed_test_data(db_session)
+    response = client.get("/api/data-quality/bounds")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["min_date"] == "2026-01-01"
+    assert data["max_date"] == "2026-01-01"
+    assert data["total_actual_records"] == 2
+    assert data["total_forecast_records"] == 2
 
 
 def test_invalid_date_range_returns_422(client: TestClient):

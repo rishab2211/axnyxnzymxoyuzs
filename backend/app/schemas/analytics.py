@@ -93,4 +93,13 @@ class DataQualitySummary(BaseModel):
     actual_coverage_pct: float
     forecast_coverage_pct: float
     matched_coverage_pct: float
+    cutoff_eligible_forecasts: int = Field(0, description="Count of hourly intervals with at least one forecast published on or before cutoff")
+    missing_cutoff_forecast_intervals: int = Field(0, description="Hourly intervals lacking an eligible forecast published on or before cutoff")
     recent_ingestions: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class DataBoundsResponse(BaseModel):
+    min_date: Optional[date] = None
+    max_date: Optional[date] = None
+    total_actual_records: int
+    total_forecast_records: int
