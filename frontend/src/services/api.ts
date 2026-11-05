@@ -10,7 +10,8 @@ import type {
   IngestionResponse,
 } from '@/types';
 
-const API_BASE = '/api';
+const RAW_API_BASE = import.meta.env.VITE_API_BASE_URL;
+const API_BASE = RAW_API_BASE ? `${RAW_API_BASE.replace(/\/$/, '')}/api` : '/api';
 
 class ApiError extends Error {
   status?: number;
