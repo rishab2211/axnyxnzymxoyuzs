@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 
-interface PageShellProps {
+export interface PageShellProps {
   title: string;
   subtitle?: string;
   actions?: React.ReactNode;

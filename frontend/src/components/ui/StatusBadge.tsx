@@ -40,11 +40,21 @@ const variantStyles: Record<BadgeVariant, { bg: string; text: string; dot: strin
 
 export const StatusBadge: React.FC<StatusBadgeProps> = ({
   label,
-  variant = 'neutral',
+  variant,
   className,
   showDot = true,
 }) => {
-  const styles = variantStyles[variant];
+  const resolvedVariant: BadgeVariant = React.useMemo(() => {
+    if (variant) return variant;
+    const lower = (label || '').toLowerCase();
+    if (['success', 'matched', 'healthy', 'connected', 'eligible'].some((k) => lower.includes(k))) return 'success';
+    if (['failed', 'danger', 'error', 'missing'].some((k) => lower.includes(k))) return 'danger';
+    if (['warning', 'partial', 'degraded'].some((k) => lower.includes(k))) return 'warning';
+    if (['running', 'info', 'in progress'].some((k) => lower.includes(k))) return 'info';
+    return 'neutral';
+  }, [variant, label]);
+
+  const styles = variantStyles[resolvedVariant];
 
   return (
     <span

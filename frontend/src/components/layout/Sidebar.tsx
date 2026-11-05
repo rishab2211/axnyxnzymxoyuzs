@@ -1,5 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   LayoutDashboard,
   Compass,
@@ -10,6 +11,8 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { api } from '@/services/api';
+import { formatDateUTC } from '@/lib/formatters';
 
 const navigationItems = [
   { name: 'Overview', to: '/dashboard', icon: LayoutDashboard },
@@ -19,7 +22,7 @@ const navigationItems = [
   { name: 'Data Pipeline', to: '/pipeline', icon: Workflow },
 ];
 
-interface SidebarProps {
+export interface SidebarProps {
   isOpen?: boolean;
   onClose?: () => void;
 }
@@ -28,6 +31,11 @@ const SidebarContent: React.FC<{ onClose?: () => void; isMobile?: boolean }> = (
   onClose,
   isMobile,
 }) => {
+  const { data: bounds } = useQuery({
+    queryKey: ['data-bounds'],
+    queryFn: () => api.getDataBounds(),
+    staleTime: 60_000,
+  });
   return (
     <div className="flex flex-col h-full">
       {/* Brand Header */}
@@ -83,14 +91,27 @@ const SidebarContent: React.FC<{ onClose?: () => void; isMobile?: boolean }> = (
       </nav>
 
       {/* Scope Metadata Card */}
-      <div className="p-4 mx-3 mb-6 bg-slate-800/50 rounded-xl border border-slate-800 text-xs">
-        <div className="flex items-center gap-2 mb-2 text-slate-200 font-medium">
-          <span className="w-2 h-2 rounded-full bg-emerald-400" />
-          <span>Evaluation Scope</span>
+      <div className="p-3.5 mx-3 mb-5 bg-slate-800/60 rounded-xl border border-slate-700/60 text-xs">
+        <div className="flex items-center gap-2 mb-1.5 text-slate-200 font-medium">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+          <span className="font-semibold text-slate-100">Live Evaluation Scope</span>
         </div>
         <p className="text-slate-400 text-[11px] leading-relaxed">
-          National GB Wind Only (FUELHH &amp; WINDFOR). Evaluation period: Jan 1–31, 2026.
+          National GB Wind (<span className="text-teal-300 font-mono">FUELHH</span> &amp; <span className="text-blue-300 font-mono">WINDFOR</span>)
         </p>
+        {bounds?.min_date && bounds?.max_date ? (
+          <div className="mt-2 pt-2 border-t border-slate-700/50 flex flex-col gap-0.5 text-[10px] text-slate-400 font-mono">
+            <div className="flex justify-between items-center text-slate-300">
+              <span>Database Scope:</span>
+              <span className="font-bold text-teal-400">{bounds.total_actual_records.toLocaleString()} records</span>
+            </div>
+            <div className="text-slate-400 text-[10px]">
+              {formatDateUTC(bounds.min_date)} &rarr; {formatDateUTC(bounds.max_date)}
+            </div>
+          </div>
+        ) : (
+          <div className="mt-1.5 text-[10px] text-slate-400">Loading dataset bounds...</div>
+        )}
       </div>
 
       {/* Footer System Info */}

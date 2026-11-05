@@ -43,7 +43,14 @@ export const KPICard: React.FC<KPICardProps> = ({
       <div>
         <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
           <span>{label}</span>
-          {formula && <MetricTooltip content={`Formula: ${formula}${interpretation ? ` • ${interpretation}` : ''}`} />}
+          {formula && (
+            <MetricTooltip
+              title={label}
+              content={`Formula: ${formula}${interpretation ? ` • ${interpretation}` : ''}`}
+              side="bottom"
+              align="right"
+            />
+          )}
         </div>
 
         <div className="flex items-baseline gap-1.5 mt-1">

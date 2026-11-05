@@ -18,9 +18,8 @@
 
     /* Strict Type-Checking */
     "strict": true,
-    "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"]
     },
 
     /* Linting */
