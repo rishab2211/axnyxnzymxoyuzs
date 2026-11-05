@@ -1,36 +1,4 @@
-import React, { lazy, Suspense } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
-
-const DashboardPage = lazy(() =>
-  import('@/features/dashboard/DashboardPage').then((m) => ({ default: m.DashboardPage }))
-);
-const ForecastsPage = lazy(() =>
-  import('@/features/forecasts/ForecastsPage').then((m) => ({ default: m.ForecastsPage }))
-);
-const AccuracyPage = lazy(() =>
-  import('@/features/accuracy/AccuracyPage').then((m) => ({ default: m.AccuracyPage }))
-);
-const DataQualityPage = lazy(() =>
-  import('@/features/data-quality/DataQualityPage').then((m) => ({ default: m.DataQualityPage }))
-);
-const PipelinePage = lazy(() =>
-  import('@/features/pipeline/PipelinePage').then((m) => ({ default: m.PipelinePage }))
-);
-
-const PageLoader: React.FC = () => (
-  <div className="flex items-center justify-center min-h-[400px] text-slate-400 text-sm">
-    <div className="animate-pulse flex items-center gap-2">
-      <div className="w-2 h-2 bg-teal-500 rounded-full animate-ping" />
-      <span>Loading module...</span>
-    </div>
-  </div>
-);
-
-const withSuspense = (Component: React.ComponentType) => (
-  <Suspense fallback={<PageLoader />}>
-    <Component />
-  </Suspense>
-);
 
 export const router = createBrowserRouter([
   {
@@ -39,23 +7,38 @@ export const router = createBrowserRouter([
   },
   {
     path: '/dashboard',
-    element: withSuspense(DashboardPage),
+    lazy: async () => {
+      const { DashboardPage } = await import('@/features/dashboard/DashboardPage');
+      return { Component: DashboardPage };
+    },
   },
   {
     path: '/forecasts',
-    element: withSuspense(ForecastsPage),
+    lazy: async () => {
+      const { ForecastsPage } = await import('@/features/forecasts/ForecastsPage');
+      return { Component: ForecastsPage };
+    },
   },
   {
     path: '/accuracy',
-    element: withSuspense(AccuracyPage),
+    lazy: async () => {
+      const { AccuracyPage } = await import('@/features/accuracy/AccuracyPage');
+      return { Component: AccuracyPage };
+    },
   },
   {
     path: '/data-quality',
-    element: withSuspense(DataQualityPage),
+    lazy: async () => {
+      const { DataQualityPage } = await import('@/features/data-quality/DataQualityPage');
+      return { Component: DataQualityPage };
+    },
   },
   {
     path: '/pipeline',
-    element: withSuspense(PipelinePage),
+    lazy: async () => {
+      const { PipelinePage } = await import('@/features/pipeline/PipelinePage');
+      return { Component: PipelinePage };
+    },
   },
   {
     path: '*',

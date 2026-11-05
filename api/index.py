@@ -13,7 +13,10 @@ SEEDED_DB = BACKEND_DIR / "app" / "windscope_seeded.db"
 if not os.environ.get("DATABASE_URL") and SEEDED_DB.exists():
     os.environ["DATABASE_URL"] = f"sqlite:///{SEEDED_DB.resolve()}"
 
-from app.main import app
+try:
+    from backend.app.main import app
+except ImportError:
+    from app.main import app
 
 # Export ASGI application for Vercel Python runtime
 handler = app
