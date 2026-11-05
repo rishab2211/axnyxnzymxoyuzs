@@ -1,6 +1,6 @@
 # WindScope — Day-Ahead Renewable Intelligence
 
-> **Version 1.0.0** | Enterprise Wind Generation Forecast Evaluation & Analytics for Great Britain Electricity Settlement
+> **Version 1.0.0** | Enterprise Wind Generation Forecast Evaluation & Analytics for UK Electricity Settlement
 
 [![Deployed Application](https://img.shields.io/badge/Live_Application-Vercel-black?style=flat&logo=vercel)](https://axnyxnzymxoyuzs.vercel.app)
 [![Backend API Docs](https://img.shields.io/badge/Backend_API-Heroku-430098?style=flat&logo=heroku)](https://axnyxnzymxoyuzs-api.herokuapp.com/docs)
