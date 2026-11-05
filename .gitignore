@@ -40,4 +40,5 @@ Thumbs.db
 # Docker / DB data
 *.db
 *.sqlite3
+!backend/app/windscope_seeded.db
 data/

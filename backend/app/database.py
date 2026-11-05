@@ -25,12 +25,20 @@ class UTCDateTime(TypeDecorator):
         return value
 
 
-# Engine configuration with connection pooling
+# Engine configuration with connection pooling (dialect-aware for Postgres and SQLite)
+is_sqlite = settings.DATABASE_URL.startswith("sqlite")
+engine_kwargs = {"pool_pre_ping": True}
+if is_sqlite:
+    from sqlalchemy.pool import StaticPool
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+    engine_kwargs["poolclass"] = StaticPool
+else:
+    engine_kwargs["pool_size"] = 10
+    engine_kwargs["max_overflow"] = 20
+
 engine = create_engine(
     settings.DATABASE_URL,
-    pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
+    **engine_kwargs,
 )
 
 SessionLocal = sessionmaker(
