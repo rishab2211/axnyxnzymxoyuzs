@@ -3,12 +3,12 @@
 > **Version 1.0.0** | Enterprise Wind Generation Forecast Evaluation & Analytics for UK Electricity Settlement
 
 [![Deployed Application](https://img.shields.io/badge/Live_Application-Vercel-black?style=flat&logo=vercel)](https://axnyxnzymxoyuzs.vercel.app)
-[![Backend API Docs](https://img.shields.io/badge/Backend_API-Heroku-430098?style=flat&logo=heroku)](https://axnyxnzymxoyuzs-api.herokuapp.com/docs)
+[![Backend API Docs](https://img.shields.io/badge/Backend_API_Docs-FastAPI_Swagger-009688?style=flat&logo=fastapi)](https://axnyxnzymxoyuzs.vercel.app/docs)
 [![Video Walkthrough](https://img.shields.io/badge/YouTube-Video_Pitch_%26_Tech_Review-red?style=flat&logo=youtube)](https://youtu.be/REPLACE_WITH_YOUR_UNLISTED_ID)
 
 ### Deployment & Demonstration Links
 - **Live Deployed Application (Vercel):** [https://axnyxnzymxoyuzs.vercel.app](https://axnyxnzymxoyuzs.vercel.app)
-- **Live Backend API & OpenAPI Docs (Heroku):** [https://axnyxnzymxoyuzs-api.herokuapp.com/docs](https://axnyxnzymxoyuzs-api.herokuapp.com/docs)
+- **Live Backend API & OpenAPI Docs:** [https://axnyxnzymxoyuzs.vercel.app/docs](https://axnyxnzymxoyuzs.vercel.app/docs)
 - **10-Minute Demonstration Video (YouTube Unlisted):** [https://youtu.be/REPLACE_WITH_YOUR_UNLISTED_ID](https://youtu.be/REPLACE_WITH_YOUR_UNLISTED_ID)
   - *Part 1 (0:00 – 5:00):* Energy Utility Client Pitch & Commercial Value
   - *Part 2 (5:00 – 10:00):* Internal Tech Lead Architectural Walkthrough & Code Review
